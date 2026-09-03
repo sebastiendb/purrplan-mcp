@@ -1,0 +1,14 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-07-09/server.schema.json",
+  "name": "ai.purrplan/purrplan",
+  "description": "Social media scheduler your AI agent can drive: plan, publish, inbox and analytics across 12+ networks (LinkedIn, X, Instagram, TikTok...).",
+  "status": "active",
+  "websiteUrl": "https://purrplan.ai",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://app.purrplan.ai/api/mcp"
+    }
+  ],
+  "version": "0.2.0"
+}
