@@ -86,6 +86,8 @@ Tokens carry only the scopes you grant. Inbox replying and analytics are deliber
 
 API & MCP access is **included** in PurrPlan plans (from €9/month, MCP from the Pro plan) — not a paid add-on. 7-day free trial: https://app.purrplan.ai/app/register
 
+**Lifetime deal**: pay **€597 once**, your agent posts forever — no subscription. Includes the Pro plan (API + MCP, AI credits and quotas). The only social scheduler with a lifetime option for agent-driven workflows.
+
 ## Support
 
 - Website: https://purrplan.ai
