@@ -6,6 +6,20 @@ Official **remote MCP server** for [PurrPlan](https://purrplan.ai) — the socia
 - **Health check** (no auth): `https://app.purrplan.ai/api/mcp/health`
 - **Auth**: Bearer token (created in-app) or OAuth 2.0 with Dynamic Client Registration + PKCE
 - **Docs**: https://purrplan.ai/developpeurs (FR) · https://purrplan.ai/en/developpeurs (EN)
+- **Free library** (this repo, MIT): a thin JSON-RPC client for that endpoint. Not a paid SDK. You supply the token.
+
+## Free library
+
+```bash
+# from a checkout of this repo
+node --experimental-strip-types -e "
+import { createPurrPlanClient } from './src/index.ts';
+const client = createPurrPlanClient({ token: process.env.PURRPLAN_TOKEN });
+console.log(await client.listWorkspaces());
+"
+```
+
+`createPurrPlanClient({ token, endpoint? })` posts `tools/call` to `https://app.purrplan.ai/api/mcp` only. It refuses a missing token, a reply without `confirm: true`, and a media URL that points at a private address. It does not call `/mixpost/api`. The 18 methods match the SaaS registry (`src/tools.ts`).
 
 ## Quick start
 
