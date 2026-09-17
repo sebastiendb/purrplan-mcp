@@ -132,7 +132,7 @@ curl -sS -X POST https://app.purrplan.ai/api/partner/connect-link \
 
 Ouvrez `url` dans le navigateur du client. `facebook` est un alias : la réponse dit `facebook_page`. Un nom inconnu (`facebook_page` est le bon nom, `facebok` non) répond `422` avec `Provider [facebok] not supported.` et aucun champ `url`.
 
-L'URL de retour doit être publique, en `http` ou `https`, port 80 ou 443. Refusés avant tout lien : `127.0.0.1`, `localhost`, une IP privée, une IP de metadata, un nom interne d'un seul mot, un autre schéma, un autre port. La réponse est `422`, sans champ `url` :
+L'URL de retour doit être publique, en `http` ou `https`, port 80 ou 443. Refusés avant tout lien : `127.0.0.1`, `localhost`, une IP privée, une IP de metadata, un nom interne d'un seul mot, un autre schéma, un autre port, un hôte absent, un hôte qui ne se résout pas. La réponse est `422`, sans champ `url` :
 
 ```json
 {
@@ -141,13 +141,17 @@ L'URL de retour doit être publique, en `http` ou `https`, port 80 ou 443. Refus
 }
 ```
 
-Les autres messages de ce champ : `URL invalide.`, `Seules les URL http et https sont acceptées.`, `Seuls les ports 80 et 443 sont acceptés.`
+Les autres messages de ce champ : `URL invalide.`, `Seules les URL http et https sont acceptées.`, `URL sans nom d'hôte.`, `Seuls les ports 80 et 443 sont acceptés.`, `Nom d'hôte introuvable.`
+
+Un `422` de validation (uuid mal formé, champ manquant) a la forme Laravel `{ "message", "errors": { champ: […] } }`. Un provider inconnu est un autre `422`, avec seulement `{ "message": "Provider [facebok] not supported." }` et pas de clé `errors`.
 
 `403` et `{ "message": "Workspace inaccessible." }` si le jeton n'est pas membre du workspace demandé, ou si l'uuid n'existe pas. Un lien émis pour un workspace ne peut pas attacher le compte à un autre : le `state` OAuth est l'uuid de ce workspace, et le réseau le renvoie tel quel.
 
 ### Facebook : un arrêt de plus
 
-Une Page Facebook ne s'attache pas au premier retour. PurrPlan affiche le choix de la page. Une fois la page choisie, le navigateur part vers votre URL. Une erreur récupérable sur cette liste (quota, jeton pas encore bon, liste vide) vous prévient, mais ne brûle pas la tentative : le choix qui suit revient encore chez vous.
+Une Page Facebook ne s'attache pas au premier retour. PurrPlan affiche le choix de la page. Une fois la page choisie et attachée, le navigateur part vers votre URL et la tentative est consommée.
+
+Avant cet attachement, un quota, un jeton pas encore échangé, ou une liste de pages vide prévient et **ne** consomme **pas** la tentative : un second essai revient encore chez vous. Ce n'est pas le cas d'un attachement réussi : là, la tentative est brûlée, et un retour suivant ne repart plus vers votre URL.
 
 Les réseaux sans cet écran reviennent directement après le consentement.
 
@@ -182,13 +186,18 @@ Ce n'est pas l'API partenaire. Dans l'espace de travail, page **Webhooks** (`/{w
     "accounts": [],
     "versions": [],
     "tags": [],
+    "user": { "name": "Atelier Nord" },
     "scheduled_at": "2026-09-20 08:00:00",
-    "published_at": "2026-09-20 08:00:04"
+    "published_at": "2026-09-20 08:00:04",
+    "created_at": "2026-09-18 10:00:00",
+    "trashed": false
   }
 }
 ```
 
-Pour un post, `data` est la fiche (`id`, `uuid`, `status`, `accounts`, `versions`, `tags`, `scheduled_at`, `published_at`). Pour `account.deleted`, `data` ne porte que `{ "uuid" }`.
+Pour un post, `data` est toute la fiche : `id`, `uuid`, `status`, `accounts`, `versions`, `tags`, `user` (`name` seulement), `scheduled_at`, `published_at`, `created_at`, `trashed`. Ne matchez pas un sous-ensemble : un champ en plus n'est pas une livraison invalide.
+
+`account.added` et `account.updated` envoient la fiche compte, pas seulement un uuid : `id`, `uuid`, `name`, `username`, `image`, `provider`, `data`, `authorized`, `created_at`. `account.deleted` ne porte que `{ "uuid" }`.
 
 | Nom | Quand |
 |---|---|
