@@ -195,7 +195,18 @@ Ce n'est pas l'API partenaire. Dans l'espace de travail, page **Webhooks** (`/{w
 }
 ```
 
-Pour un post, `data` est toute la fiche : `id`, `uuid`, `status`, `accounts`, `versions`, `tags`, `user` (`name` seulement), `scheduled_at`, `published_at`, `created_at`, `trashed`. Ne matchez pas un sous-ensemble : un champ en plus n'est pas une livraison invalide.
+Pour `post.scheduled`, `post.published` et `post.publishing_failed`, `data` est toute la fiche : `id`, `uuid`, `status`, `accounts`, `versions`, `tags`, `user` (`name` seulement), `scheduled_at`, `published_at`, `created_at`, `trashed`. Ne matchez pas un sous-ensemble : un champ en plus n'est pas une livraison invalide.
+
+`post.deleted` n'envoie pas cette fiche. Une suppression peut en concerner plusieurs :
+
+```json
+{
+  "event": "post.deleted",
+  "data": { "uuids": ["post-uuid"], "deleted": true }
+}
+```
+
+Mise à la corbeille : `{ "uuids": ["post-uuid"], "to_trash": true }`. Les deux drapeaux ne sont pas envoyés ensemble. `deleted` est absent quand `to_trash` est vrai, et l'inverse.
 
 `account.added` et `account.updated` envoient la fiche compte, pas seulement un uuid : `id`, `uuid`, `name`, `username`, `image`, `provider`, `data`, `authorized`, `created_at`. `account.deleted` ne porte que `{ "uuid" }`.
 
@@ -204,7 +215,7 @@ Pour un post, `data` est toute la fiche : `id`, `uuid`, `status`, `accounts`, `v
 | `post.scheduled` | Un post vient d'être programmé |
 | `post.published` | Il est en ligne |
 | `post.publishing_failed` | Le réseau a refusé |
-| `post.deleted` | Il a été supprimé |
+| `post.deleted` | Un ou plusieurs posts ont été supprimés ou mis à la corbeille. `data` = `{ uuids, deleted? , to_trash? }`, pas la fiche. |
 | `account.added` | Un compte vient d'être attaché |
 | `account.updated` | Un compte a changé |
 | `account.deleted` | Un compte a été retiré |
