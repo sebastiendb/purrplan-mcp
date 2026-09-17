@@ -10,7 +10,7 @@ PurrPlan is a social media scheduler with a **remote MCP server** built in. This
 ## Setup (once)
 
 1. The user needs a PurrPlan account (7-day free trial): https://app.purrplan.ai/app/register
-2. Create a token in-app: **https://app.purrplan.ai/app/mcp-integration** → pick scopes (`read`, `write`, `ai`, `media`, `inbox:read`, `inbox:reply`, `analytics:read`).
+2. Create a token in the workspace: **https://app.purrplan.ai/{workspace_uuid}/api-mcp** → pick scopes (`read`, `write`, `ai`, `media`, `inbox:read`, `inbox:reply`, `analytics:read`). The old profile URL only redirects here.
 3. Add the MCP server:
 
 ```json

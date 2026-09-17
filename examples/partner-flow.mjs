@@ -7,8 +7,8 @@
  * Facebook. Rien ici n'ouvre l'interface PurrPlan.
  *
  * La vérification de signature en bas rejoue ce que le serveur fait :
- * HMAC-SHA256 du corps JSON, en-tête X-Signature. Elle n'appelle pas
- * le réseau.
+ * HMAC-SHA256 du corps JSON, en-tête X-Signature, slashs échappés
+ * comme le json_encode de PHP. Elle n'appelle pas le réseau.
  */
 
 const BASE = "https://app.purrplan.ai";
@@ -73,7 +73,11 @@ const refused = await post("/api/partner/connect-link", {
 console.log("URL privée refusée", refused.status === 422);
 
 // Même calcul que TriggerWebhook : hash_hmac('sha256', json_encode($data), $secret).
-const sample = JSON.stringify({ event: "post.published", data: { uuid: "post-1", status: "published" } });
+// PHP échappe les slashs. Un JSON.stringify nu ne retombe pas sur ces octets.
+const sample = JSON.stringify({
+  event: "post.published",
+  data: { uuid: "post-1", status: "published", url: "https://app.purrplan.ai/posts/post-1" },
+}).replaceAll("/", "\\/");
 const { createHmac } = await import("node:crypto");
 const signature = createHmac("sha256", "whsec-demo").update(sample).digest("hex");
 const { verifyWebhookSignature } = await import("../src/webhook.ts");

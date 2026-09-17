@@ -1,17 +1,19 @@
 # API partenaire
 
-Pour un outil qui crée les comptes PurrPlan à la place de ses clients. Le client ne se connecte pas à l'interface. Vous gardez le jeton, vous programmez avec le MCP, vous lui faites rattacher ses réseaux depuis votre propre écran.
+Quatre appels, dans cet ordre. Vous créez le client, vous rangez le jeton, vous programmez avec, vous lui faites rattacher un réseau, puis vous vérifiez qu'un post est bien parti.
 
-Base : `https://app.purrplan.ai`
+Base : `https://app.purrplan.ai`. Le client ne se connecte pas à l'interface.
 
-Deux secrets, deux rôles. Ne les mélangez pas.
+Deux secrets. Ne les mélangez pas.
 
-| Secret | Qui l'a | À quoi il sert |
+| Secret | Qui l'a | Sert à |
 |---|---|---|
 | `X-Partner-Secret` | Vous, une seule fois | Créer un client |
-| Jeton `Bearer` | Un par client, rendu à la création | MCP, programmation, lien de connexion |
+| Jeton `Bearer` | Un par client, rendu à la création | Programmer, demander un lien de connexion |
 
-Le secret partenaire ne programme rien. Le jeton client ne crée pas d'autres clients.
+Le secret partenaire ne programme rien. Le jeton client ne crée pas d'autres clients. Ne collez jamais le secret dans un exemple que vous committez : une variable d'environnement suffit.
+
+Le secret n'est pas public. S'il n'est pas encore posé côté PurrPlan, l'étape 1 répond `401` pour tout le monde.
 
 ## 1. Créer un client
 
@@ -26,7 +28,7 @@ curl -sS -X POST https://app.purrplan.ai/api/partner/clients \
   }'
 ```
 
-`201` :
+`201` — gardez ces trois champs. Vous ne les reverrez pas ensemble.
 
 ```json
 {
@@ -37,22 +39,19 @@ curl -sS -X POST https://app.purrplan.ai/api/partner/clients \
 }
 ```
 
-Enregistrez `token` et `workspace_uuid` de votre côté. Le mot de passe n'est renvoyé qu'ici. Un appel plus tard ne le redonne pas.
+Le mot de passe en clair n'existe que dans cette réponse. Un appel plus tard ne le redonne pas, et ne le journalise pas. Le jeton s'appelle `[MCP] partner`, expire dans 90 jours, et porte toutes les portées connues : `read`, `write`, `ai`, `media`, `inbox:read`, `inbox:reply`, `analytics:read`.
 
-Le même email une seconde fois répond `409` et ne crée ni utilisateur, ni workspace, ni jeton :
+Refus :
 
-```json
-{
-  "message": "Un compte existe déjà pour cette adresse.",
-  "errors": { "email": ["Un compte existe déjà pour cette adresse."] }
-}
-```
-
-`401` : secret absent, faux, ou pas encore posé côté PurrPlan. `422` : email invalide, ou mot de passe trop court (8 caractères, majuscule, minuscule, chiffre).
+| Code | Quand | Corps |
+|---|---|---|
+| `401` | Secret absent, faux, ou pas encore posé | `{ "message": "Unauthorized." }` |
+| `409` | Cet email a déjà un compte. Rien n'est créé : ni utilisateur, ni workspace, ni jeton | `{ "message": "Un compte existe déjà pour cette adresse.", "errors": { "email": ["Un compte existe déjà pour cette adresse."] } }` |
+| `422` | Nom, email ou mot de passe refusé | `errors` par champ. Mot de passe : au moins 8 caractères |
 
 ## 2. Programmer avec ce jeton
 
-Le jeton est un jeton MCP. Il s'utilise sur `POST /api/mcp`, pas sur une autre route.
+Le jeton parle à `POST /api/mcp`. Pas à une autre route.
 
 ```bash
 curl -sS -X POST https://app.purrplan.ai/api/mcp \
@@ -67,7 +66,7 @@ curl -sS -X POST https://app.purrplan.ai/api/mcp \
   }'
 ```
 
-La réponse contient le `workspace_uuid` créé à l'étape 1.
+La réponse contient le `workspace_uuid` de l'étape 1.
 
 Pour poser un post, prenez d'abord les `id` numériques dans `list_accounts`, puis :
 
@@ -92,9 +91,7 @@ curl -sS -X POST https://app.purrplan.ai/api/mcp \
   }'
 ```
 
-Sans `scheduled_at`, le post reste un brouillon. Les 18 outils sont dans le [README](../README.md).
-
-En JavaScript, le client de ce dépôt fait le même appel :
+Sans `scheduled_at`, le post reste un brouillon. Les 18 outils et leurs portées sont dans le [README](../README.md). Un jeton sans la portée demandée reçoit `Insufficient scopes`.
 
 ```js
 import { createPurrPlanClient } from "@purrplan/mcp";
@@ -103,9 +100,13 @@ const client = createPurrPlanClient({ token: process.env.CLIENT_TOKEN });
 const workspaces = await client.listWorkspaces();
 ```
 
+Un jeton créé à la main, hors de cette API, se fait dans l'espace de travail : `https://app.purrplan.ai/{workspace_uuid}/api-mcp`. L'ancienne page profil `/app/mcp-integration` ne fait que rediriger là.
+
 ## 3. Rattacher un réseau
 
-Vous ne remplacez pas l'adresse enregistrée chez Meta, X ou les autres. Le navigateur revient d'abord sur PurrPlan. PurrPlan envoie ensuite le visiteur sur l'URL que vous avez donnée pour cette tentative.
+Vous ne remplacez pas l'adresse enregistrée chez Meta ou X. Le navigateur revient d'abord sur PurrPlan. PurrPlan envoie ensuite le visiteur sur l'URL que vous avez donnée pour cette tentative.
+
+Le lien se demande avec le **jeton du client**, pas avec le secret partenaire.
 
 ```bash
 curl -sS -X POST https://app.purrplan.ai/api/partner/connect-link \
@@ -122,24 +123,33 @@ curl -sS -X POST https://app.purrplan.ai/api/partner/connect-link \
 
 ```json
 {
-  "url": "https://www.facebook.com/v19.0/dialog/oauth?client_id=…&state=4abc6745-4415-475e-8c9b-0f11b95bdeb2",
+  "url": "https://www.facebook.com/dialog/oauth?…&state=4abc6745-4415-475e-8c9b-0f11b95bdeb2",
   "provider": "facebook_page",
   "workspace_uuid": "4abc6745-4415-475e-8c9b-0f11b95bdeb2",
   "attempt": "f3c1…-uuid-de-la-tentative"
 }
 ```
 
-Ouvrez `url` dans le navigateur du client. `facebook` est un alias de `facebook_page`. Les autres providers utilisent leur nom PurrPlan (`instagram`, `linkedin`, `tiktok`, …).
+Ouvrez `url` dans le navigateur du client. `facebook` est un alias : la réponse dit `facebook_page`. Un nom inconnu (`facebook_page` est le bon nom, `facebok` non) répond `422` avec `Provider [facebok] not supported.` et aucun champ `url`.
 
-L'URL de retour doit être publique, en `http` ou `https`, port 80 ou 443. Sont refusés avant tout lien : `127.0.0.1`, `localhost`, une IP privée, une IP de metadata, un nom interne d'un seul mot, un autre schéma, un autre port. Réponse : `422`, pas de champ `url`.
+L'URL de retour doit être publique, en `http` ou `https`, port 80 ou 443. Refusés avant tout lien : `127.0.0.1`, `localhost`, une IP privée, une IP de metadata, un nom interne d'un seul mot, un autre schéma, un autre port. La réponse est `422`, sans champ `url` :
 
-`403` si ce jeton n'est pas membre du workspace demandé. Un lien émis pour un workspace ne peut pas attacher le compte à un autre : le `state` OAuth est l'uuid de ce workspace, et Meta le renvoie tel quel.
+```json
+{
+  "message": "Cette URL pointe vers une adresse non publique.",
+  "errors": { "return_url": ["Cette URL pointe vers une adresse non publique."] }
+}
+```
+
+Les autres messages de ce champ : `URL invalide.`, `Seules les URL http et https sont acceptées.`, `Seuls les ports 80 et 443 sont acceptés.`
+
+`403` et `{ "message": "Workspace inaccessible." }` si le jeton n'est pas membre du workspace demandé, ou si l'uuid n'existe pas. Un lien émis pour un workspace ne peut pas attacher le compte à un autre : le `state` OAuth est l'uuid de ce workspace, et le réseau le renvoie tel quel.
 
 ### Facebook : un arrêt de plus
 
-Une Page Facebook ne s'attache pas au premier retour. PurrPlan doit afficher le choix de la page. Une fois la page choisie, le navigateur part vers votre URL. Une erreur récupérable sur cette liste (quota, jeton pas encore bon, liste vide) vous prévient, mais ne brûle pas la tentative : le choix qui suit revient encore chez vous.
+Une Page Facebook ne s'attache pas au premier retour. PurrPlan affiche le choix de la page. Une fois la page choisie, le navigateur part vers votre URL. Une erreur récupérable sur cette liste (quota, jeton pas encore bon, liste vide) vous prévient, mais ne brûle pas la tentative : le choix qui suit revient encore chez vous.
 
-Les réseaux qui n'ont pas cet écran de choix reviennent directement après le consentement.
+Les réseaux sans cet écran reviennent directement après le consentement.
 
 ### Ce que vous recevez
 
@@ -154,31 +164,31 @@ https://outil.example/purrplan/connected?status=error&attempt=f3c1…&error=acce
 | `attempt` | L'uuid rendu avec le lien. C'est lui qui rattache ce retour à votre demande. |
 | `error` | Présent seulement en erreur. Message du réseau, ou message PurrPlan. |
 
-La tentative vit 30 minutes. Au-delà, le retour ne part plus vers votre URL.
+La tentative vit 30 minutes, une par workspace. Une nouvelle demande remplace la précédente. Au-delà de 30 minutes, le retour ne part plus vers votre URL.
 
 Le client doit être connecté à PurrPlan dans ce navigateur au moment du retour. Le premier passage par le lien de connexion le fait. Sans session, PurrPlan le renvoie vers sa page de login avant de lire le `state`.
 
 ## 4. Savoir qu'un post est parti
 
-Ce n'est pas l'API partenaire. Dans le workspace, page **Webhooks**, vous déclarez une URL publique et les événements. PurrPlan poste ce JSON :
+Ce n'est pas l'API partenaire. Dans l'espace de travail, page **Webhooks** (`/{workspace}/webhooks`, admin seulement), vous déclarez une URL publique et les événements. PurrPlan poste ce JSON :
 
 ```json
 {
   "event": "post.published",
   "data": {
+    "id": 42,
     "uuid": "post-uuid",
     "status": "published",
     "accounts": [],
     "versions": [],
+    "tags": [],
     "scheduled_at": "2026-09-20 08:00:00",
     "published_at": "2026-09-20 08:00:04"
   }
 }
 ```
 
-`data` est la fiche du post (`id`, `uuid`, `status`, `accounts`, `versions`, `tags`, `scheduled_at`, `published_at`) sauf pour `account.deleted`, qui ne porte que `{ "uuid" }`.
-
-Événements :
+Pour un post, `data` est la fiche (`id`, `uuid`, `status`, `accounts`, `versions`, `tags`, `scheduled_at`, `published_at`). Pour `account.deleted`, `data` ne porte que `{ "uuid" }`.
 
 | Nom | Quand |
 |---|---|
@@ -192,18 +202,18 @@ Ce n'est pas l'API partenaire. Dans le workspace, page **Webhooks**, vous décla
 
 Répondez `200`, `201` ou `202`. Tout autre code est un échec, visible dans l'historique de livraison du workspace.
 
-Si vous avez posé un secret sur le webhook, le corps est signé. L'en-tête `X-Signature` est le HMAC-SHA256 hexadécimal du corps JSON, calculé avec ce secret. Sans secret, l'en-tête est absent : ne traitez pas ça comme une livraison signée.
+Si vous avez posé un secret sur le webhook, l'en-tête `X-Signature` est le HMAC-SHA256 hexadécimal du corps JSON, calculé avec ce secret. Sans secret, l'en-tête est absent : ne traitez pas ça comme une livraison signée.
 
-Le serveur signe avec `json_encode` de PHP (slashs échappés). Vérifiez le corps brut reçu, pas un JSON que vous avez ré-encodé.
+Le serveur signe `json_encode` de PHP, donc les slashs sont échappés (`https:\/\/…`). Vérifiez le corps brut reçu. Un JSON que vous ré-encodez ne retombe pas sur les mêmes octets.
 
 ```js
 import { verifyWebhookSignature } from "@purrplan/mcp/webhook";
 
 const ok = verifyWebhookSignature({
-  rawBody: request.rawBody,          // le corps, octet pour octet
+  rawBody: request.rawBody,
   signature: request.headers["x-signature"],
   secret: process.env.WEBHOOK_SECRET,
 });
 ```
 
-L'exemple commenté est dans [examples/partner-flow.mjs](../examples/partner-flow.mjs).
+L'exemple commenté est dans [examples/partner-flow.mjs](../examples/partner-flow.mjs). Il signe le même corps que le serveur, slashs échappés compris, et le fait passer par `verifyWebhookSignature`.

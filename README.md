@@ -24,7 +24,7 @@ console.log(await client.listWorkspaces());
 
 ## Quick start
 
-Create a token in PurrPlan → **API & MCP** page (`https://app.purrplan.ai/app/mcp-integration`), pick your scopes, then:
+Create a token in the workspace **API & MCP** page (`https://app.purrplan.ai/{workspace_uuid}/api-mcp`), pick your scopes, then:
 
 ### Claude Code
 
@@ -106,5 +106,5 @@ API & MCP access is **included** in PurrPlan plans (from €9/month, MCP from th
 ## Support
 
 - Website: https://purrplan.ai
-- In-app MCP page: https://app.purrplan.ai/app/mcp-integration
+- In-app MCP page: `https://app.purrplan.ai/{workspace_uuid}/api-mcp`
 - Contact: hello@purrplan.ai
