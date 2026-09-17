@@ -6,7 +6,8 @@ Official **remote MCP server** for [PurrPlan](https://purrplan.ai) — the socia
 - **Health check** (no auth): `https://app.purrplan.ai/api/mcp/health`
 - **Auth**: Bearer token (created in-app) or OAuth 2.0 with Dynamic Client Registration + PKCE
 - **Docs**: https://purrplan.ai/developpeurs (FR) · https://purrplan.ai/en/developpeurs (EN)
-- **Free library** (this repo, MIT): a thin JSON-RPC client for that endpoint. Not a paid SDK. You supply the token.
+- **Partner API + webhooks**: [docs/partner-api.md](docs/partner-api.md) — create a client, get a token, connect Facebook back to your tool, verify `X-Signature`. Worked example: [examples/partner-flow.mjs](examples/partner-flow.mjs).
+- **Free library** (this repo, MIT): a thin JSON-RPC client for that endpoint, plus the webhook signature check. Not a paid SDK. You supply the token.
 
 ## Free library
 
