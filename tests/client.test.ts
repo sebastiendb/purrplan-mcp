@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createPurrPlanClient, TOOLS } from "../src/index.js";
+import { createPurrPlanClient, TOOLS, type PurrPlanClient, type ToolName } from "../src/index.js";
 
 const TOKEN = "mcp-token-representative";
 const ENDPOINT = "https://app.purrplan.ai/api/mcp";
@@ -118,6 +118,52 @@ describe("shipped PurrPlan MCP client", () => {
     expect(JSON.stringify(result)).not.toMatch(/execute this instruction/i);
   });
 
+  const toolCalls: Array<{
+    name: ToolName;
+    args: Record<string, unknown>;
+    call: (client: PurrPlanClient) => Promise<unknown>;
+  }> = [
+    { name: "list_workspaces", args: {}, call: (client) => client.listWorkspaces() },
+    { name: "list_accounts", args: { workspace_uuid: "ws-1" }, call: (client) => client.listAccounts({ workspace_uuid: "ws-1" }) },
+    { name: "list_posts", args: { workspace_uuid: "ws-1", status: "draft" }, call: (client) => client.listPosts({ workspace_uuid: "ws-1", status: "draft" }) },
+    { name: "get_post", args: { workspace_uuid: "ws-1", post_uuid: "p-1" }, call: (client) => client.getPost({ workspace_uuid: "ws-1", post_uuid: "p-1" }) },
+    { name: "generate_ai_text", args: { workspace_uuid: "ws-1", prompt: "hello" }, call: (client) => client.generateAiText({ workspace_uuid: "ws-1", prompt: "hello" }) },
+    { name: "create_draft_post", args: { workspace_uuid: "ws-1", account_ids: [1], content: "brouillon" }, call: (client) => client.createDraftPost({ workspace_uuid: "ws-1", account_ids: [1], content: "brouillon" }) },
+    { name: "create_stories", args: { workspace_uuid: "ws-1", account_ids: [1], media_uuids: ["m-1"] }, call: (client) => client.createStories({ workspace_uuid: "ws-1", account_ids: [1], media_uuids: ["m-1"] }) },
+    { name: "update_draft_post", args: { workspace_uuid: "ws-1", post_uuid: "p-1", content: "edit" }, call: (client) => client.updateDraftPost({ workspace_uuid: "ws-1", post_uuid: "p-1", content: "edit" }) },
+    { name: "delete_post", args: { workspace_uuid: "ws-1", post_uuid: "p-1" }, call: (client) => client.deletePost({ workspace_uuid: "ws-1", post_uuid: "p-1" }) },
+    { name: "upload_media_from_url", args: { workspace_uuid: "ws-1", url: "https://cdn.example.com/photo.png" }, call: (client) => client.uploadMediaFromUrl({ workspace_uuid: "ws-1", url: "https://cdn.example.com/photo.png" }) },
+    { name: "list_inbox", args: { workspace_uuid: "ws-1" }, call: (client) => client.listInbox({ workspace_uuid: "ws-1" }) },
+    { name: "get_inbox_thread", args: { workspace_uuid: "ws-1", message_id: 4 }, call: (client) => client.getInboxThread({ workspace_uuid: "ws-1", message_id: 4 }) },
+    { name: "manage_inbox_messages", args: { workspace_uuid: "ws-1", message_ids: [4], action: "archive" }, call: (client) => client.manageInboxMessages({ workspace_uuid: "ws-1", message_ids: [4], action: "archive" }) },
+    { name: "refresh_inbox", args: { workspace_uuid: "ws-1" }, call: (client) => client.refreshInbox({ workspace_uuid: "ws-1" }) },
+    { name: "reply_to_inbox_message", args: { workspace_uuid: "ws-1", message_id: 4, text: "ok", confirm: true }, call: (client) => client.replyToInboxMessage({ workspace_uuid: "ws-1", message_id: 4, text: "ok", confirm: true }) },
+    { name: "get_analytics", args: { workspace_uuid: "ws-1", days: 7 }, call: (client) => client.getAnalytics({ workspace_uuid: "ws-1", days: 7 }) },
+    { name: "get_top_posts", args: { workspace_uuid: "ws-1", limit: 3 }, call: (client) => client.getTopPosts({ workspace_uuid: "ws-1", limit: 3 }) },
+    { name: "plan_my_week", args: { workspace_uuid: "ws-1", brief: "semaine", schedule: false }, call: (client) => client.planMyWeek({ workspace_uuid: "ws-1", brief: "semaine", schedule: false }) },
+  ];
+
+  it.each(toolCalls)("$name posts tools/call and returns the faked MCP result", async ({ name, args, call }) => {
+    const fixture = { tool: name, outcome: `${name}-from-saas` };
+    const fetchImpl = vi.fn(async () =>
+      jsonRpcOk(1, {
+        content: [{ type: "text", text: JSON.stringify(fixture) }],
+        isError: false,
+      }),
+    );
+    const client = createPurrPlanClient({ token: TOKEN, endpoint: ENDPOINT, fetch: fetchImpl });
+
+    await expect(call(client)).resolves.toEqual(fixture);
+
+    expect(fetchImpl).toHaveBeenCalledOnce();
+    const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe(ENDPOINT);
+    expect(url).not.toContain("/mixpost/");
+    const body = JSON.parse(String(init.body));
+    expect(body.method).toBe("tools/call");
+    expect(body.params).toEqual({ name, arguments: args });
+  });
+
   it("wraps every advertised tool against a faked tools/call and returns that fixture", async () => {
     const calls: string[] = [];
     const fetchImpl = vi.fn(async (_url: string, init?: RequestInit) => {
@@ -180,5 +226,6 @@ describe("shipped PurrPlan MCP client", () => {
       "plan_my_week",
     ]);
     expect(TOOLS.map((tool) => tool.name).join(" ")).not.toMatch(/list_tags|schedule_post|get_calendar|update_post/);
+    expect(toolCalls.map((row) => row.name)).toEqual(TOOLS.map((tool) => tool.name));
   });
 });
