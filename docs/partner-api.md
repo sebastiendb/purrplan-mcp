@@ -77,6 +77,11 @@ Content-Type: application/json
 > besoin **que** si vous voulez, un jour, donner à ce client l'accès direct à
 > l'interface PurrPlan. Le parcours normal ne l'utilise jamais.
 
+> **Vos propres jetons**, pour votre espace à vous, se créent sans API : écran
+> **API & MCP** de votre espace (`app.purrplan.ai/{workspace}/api-mcp`). Le
+> formulaire demande d'abord le type — « Pour votre code (API REST) » ou « Pour
+> un agent IA (MCP) ». C'est la même distinction qu'au § ci-dessus.
+
 ## 2. Renouveler les jetons
 
 Les jetons vivent **90 jours**. Passé ce délai vos appels répondent `401`, sans
