@@ -52,6 +52,13 @@ nouveau `connect-link` n'a pas été fait.
 
 ### `GET /{workspace}/accounts/{uuid}`
 
+### `DELETE /{workspace}/accounts/{uuid}`
+Déconnecte le compte et révoque l'autorisation chez le réseau quand celui-ci le
+permet. Rend `{ "deleted": true }`. Rôle éditeur requis.
+
+Si le réseau est injoignable au moment de la révocation, la déconnexion a lieu
+quand même côté PurrPlan : un compte qu'on a demandé à retirer doit disparaître.
+
 > Il n'y a pas de `POST /accounts` : connecter un réseau passe forcément par un
 > navigateur. Voir [partner-api.md](./partner-api.md) § 3.
 
@@ -133,6 +140,17 @@ Un `account_id` de `versions` doit figurer dans `accounts`, sinon `422`.
 ```
 
 `status` vaut `draft`, `scheduled`, `publishing`, `published` ou `failed`.
+
+Quand un réseau refuse, `failures` dit **pourquoi**, compte par compte — vide
+tant que tout va bien :
+
+```json
+"failures": [
+  { "account_id": 12, "account_uuid": "…", "provider": "instagram_direct",
+    "errors": ["The media file is too large."], "system_error": null }
+]
+```
+
 **Gardez l'`uuid`** : c'est lui qui adresse le post partout ailleurs (`GET`,
 `PUT`, `DELETE`, `schedule`). L'`id` entier n'est utile qu'en interne.
 
@@ -160,6 +178,37 @@ ne réécrit pas un post pendant que le réseau est en train de le prendre.
 ### `POST /{workspace}/posts/schedule/{uuid}` — corps `{ "postNow": true|false }`
 ### `POST /{workspace}/posts/add-to-queue/{uuid}`
 ### `POST /{workspace}/posts/approve/{uuid}`
+
+---
+
+## Statistiques
+
+### `GET /{workspace}/analytics?days=30`
+`days` ∈ {7, 30, 90, 365} — toute autre valeur retombe sur 30.
+
+```json
+{
+  "days": 30,
+  "warming_up": false,
+  "followers": 1240, "followers_change_percent": 3.2,
+  "impressions": 48210, "reach": 31002,
+  "engagement": 1877,
+  "engagement_detail": { "likes": 1420, "comments": 233, "shares": 224 },
+  "engagement_rate_percent": 3.9,
+  "clicks": 512,
+  "posts_count": 22,
+  "engagement_per_post": 85.3,
+  "by_network": { … }
+}
+```
+
+> **`warming_up: true` n'est pas « zéro ».** Tant qu'aucune donnée n'a été
+> collectée, les compteurs sont absents plutôt qu'à 0 — afficher des zéros
+> ferait croire à un échec de publication. Attendez quelques jours après la
+> connexion du premier compte.
+
+### `GET /{workspace}/analytics/top-posts?days=30&limit=10`
+Les publications qui ont le mieux marché sur la période. `limit` de 1 à 50.
 
 ---
 
