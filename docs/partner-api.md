@@ -366,6 +366,10 @@ Mise à la corbeille : `{ "uuids": ["post-uuid"], "to_trash": true }`. Les deux 
 | `account.updated` | Un compte a changé |
 | `account.deleted` | Un compte a été retiré |
 
+Chaque livraison porte `workspace_uuid` à la racine, à côté de `event` et
+`data` : c'est lui qui dit de quel client il s'agit, indépendamment de l'URL
+que vous avez déclarée.
+
 Répondez `200`, `201` ou `202`. Tout autre code est un échec, visible dans l'historique de livraison du workspace.
 
 Si vous avez posé un secret sur le webhook, l'en-tête `X-Signature` est le HMAC-SHA256 hexadécimal du corps JSON, calculé avec ce secret. Sans secret, l'en-tête est absent : ne traitez pas ça comme une livraison signée.
@@ -390,6 +394,39 @@ L'exemple commenté est dans [examples/partner-flow.mjs](../examples/partner-flo
 
 Un serveur Node minimal, l'interface qui va avec, et la vérification de
 signature : [`examples/partner-starter/`](../examples/partner-starter/).
+
+## Ce à quoi penser avant la mise en production
+
+Rien de bloquant, mais chacun de ces points finit par se rappeler à vous.
+
+**Les autorisations sociales expirent.** Meta les révoque au bout d'une
+soixantaine de jours, et l'utilisateur peut les retirer à tout moment. Rien ne
+vous préviendra tout seul : surveillez `authorized: false` dans
+`GET /accounts`, ou abonnez-vous à `account.updated`. Sans cela, les
+publications de vos clients échoueront en silence — et c'est vous qu'ils
+appelleront.
+
+**Le fuseau horaire.** Un espace créé par l'API prend le fuseau du serveur.
+Passez `timezone` explicitement à **chaque** `POST /posts` : c'est le seul
+endroit où vous en avez la main, et une publication programmée dans le mauvais
+fuseau part à la mauvaise heure sans que rien ne le signale.
+
+**Un webhook par espace.** Les webhooks se déclarent client par client. La
+charge utile porte `workspace_uuid` : fiez-vous à lui plutôt qu'à l'URL que
+vous avez déclarée, une URL se recopie mal.
+
+**Les crédits IA sont par espace**, et ne se partagent pas. Les packs que vous
+achetez sur votre propre espace ne financent pas les générations de vos
+clients.
+
+**X (Twitter) est facturé à l'acte** par la plateforme. Si vos clients y
+publient en volume, parlez-en avec nous avant : ce n'est pas compris dans les
+plans.
+
+**Débit** : 120 requêtes par minute sur `/api/partner/*`, comptées par secret
+partenaire — donc par agence, pas par IP. Les appels faits avec un jeton
+client relèvent des limites habituelles (100/min, 30/min pour les envois de
+fichiers), comptées par client.
 
 ## Ce qu'il ne faut pas faire
 
