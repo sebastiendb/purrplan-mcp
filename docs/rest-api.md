@@ -113,6 +113,29 @@ Le corps mérite d'être compris une fois pour toutes :
 Sans `schedule`, `schedule_now` ni `queue`, le post est créé en **brouillon**.
 Un `account_id` de `versions` doit figurer dans `accounts`, sinon `422`.
 
+**Ce que `POST /posts` rend** — l'objet créé, **sans enveloppe** (pas de clé
+`data`). C'est là que vous lisez l'`uuid` à conserver :
+
+```json
+{
+  "id": 4821,
+  "uuid": "9c8b7a65-…",
+  "status": "scheduled",
+  "accounts": [ { "id": 12, "uuid": "…", "name": "…", "provider": "instagram_direct" } ],
+  "versions": [ { "account_id": 0, "is_original": true, "content": [ … ] } ],
+  "tags": [],
+  "user": { "name": "Atelier Nord" },
+  "scheduled_at": "2026-09-24 08:00:00",
+  "published_at": null,
+  "created_at": "2026-09-21 14:02:11",
+  "trashed": false
+}
+```
+
+`status` vaut `draft`, `scheduled`, `publishing`, `published` ou `failed`.
+**Gardez l'`uuid`** : c'est lui qui adresse le post partout ailleurs (`GET`,
+`PUT`, `DELETE`, `schedule`). L'`id` entier n'est utile qu'en interne.
+
 ### `POST /{workspace}/posts/validate`
 Même corps, ne persiste rien. Rend les refus qu'opposeraient les réseaux
 (longueur, nombre de médias, format). **Appelez-le avant de programmer** :
@@ -123,7 +146,15 @@ Paginé, 20 par page. Filtres : `status` (`draft`, `scheduled`, `published`,
 `failed`), `keyword`, `tags`, `accounts`, `start_date`, `end_date`.
 
 ### `GET /{workspace}/posts/{uuid}`
-### `PUT /{workspace}/posts/{uuid}` → `{ "success": true }`
+### `PUT /{workspace}/posts/{uuid}`
+**Même corps que `POST /posts`**, en entier — ce n'est pas une mise à jour
+partielle : les `versions` que vous envoyez remplacent les précédentes. Rend
+`{ "success": true }`, pas le post : relisez-le par `GET` si vous en avez
+besoin.
+
+Deux refus possibles en `422`, propres à la mise à jour : `in_history` (le post
+est déjà publié ou archivé) et `publishing` (sa publication est en cours). On
+ne réécrit pas un post pendant que le réseau est en train de le prendre.
 ### `DELETE /{workspace}/posts/{uuid}` → `{ "deleted": true }`, ou `?trash=1` → `{ "to_trash": true }`
 ### `DELETE /{workspace}/posts` — suppression en lot, corps `{ "items": [uuid, …] }`
 ### `POST /{workspace}/posts/schedule/{uuid}` — corps `{ "postNow": true|false }`
