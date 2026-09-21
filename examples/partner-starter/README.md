@@ -24,6 +24,24 @@ node --env-file=.env server.js
 | Poser un webhook | `POST /app/api/{ws}/webhooks` | `api_token` |
 | Recevoir les événements | — | signature HMAC vérifiée |
 
+## Comment vos clients se connectent
+
+Ils ne se connectent pas à PurrPlan : ils se connectent à **vous**.
+
+```
+votre client ──► votre interface ──► votre serveur ──► PurrPlan
+```
+
+Ce serveur est la seule chose qui détient le jeton. Le navigateur n'appelle
+que `/api/*` de ce serveur, jamais `app.purrplan.ai` — et c'est délibéré :
+sur l'API REST, un jeton est tout ou rien, il n'y a pas de portées. Un jeton
+dans le navigateur, c'est la suppression des comptes sociaux du client depuis
+sa console JavaScript.
+
+Les 90 jours de validité concernent **vos jetons de serveur**, pas vos
+clients : `POST /api/partner/clients/{ws}/tokens` les renouvelle sans qu'ils
+aient rien à faire.
+
 ## Les trois pièges, traités dans le code
 
 **1. `PUBLIC_URL` doit être publique.** PurrPlan refuse une URL de retour qui

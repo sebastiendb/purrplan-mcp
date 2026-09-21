@@ -6,6 +6,10 @@ Auth : `Authorization: Bearer <api_token>` — le jeton **sans portées**.
 > Un jeton MCP (celui qui porte des portées) est refusé ici en `403`. Les deux
 > surfaces sont volontairement étanches ; voir [partner-api.md](./partner-api.md) § 2.
 
+> ⚠️ **Sur cette API, un jeton est tout ou rien** : il n'existe pas de portées
+> côté REST. Ne le placez jamais dans un navigateur — appelez PurrPlan depuis
+> votre serveur. Voir [partner-api.md](./partner-api.md) § 4.
+
 Toutes les réponses sont en JSON. Les identifiants exposés sont des **uuid**,
 sauf dans le corps de création d'un post, qui référence les comptes, tags et
 médias par leur **id entier** — ce sont ceux que rendent `GET /accounts`,

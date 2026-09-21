@@ -171,7 +171,81 @@ Il vaut ouverture de session pour votre client, pendant 30 minutes. Rejoué, il
 renvoie chez vous avec `status=error&error=link_expired` — jamais sur un écran
 PurrPlan. Ne le mettez ni en cache, ni dans un e-mail conservé.
 
-## 4. Piloter le contenu — API REST
+## 4. Comment vos clients se connectent
+
+C'est la question qui revient toujours, et la réponse tient en une phrase :
+**vos clients ne se connectent pas à PurrPlan, ils se connectent à vous.**
+
+```
+votre client  ──►  votre interface  ──►  votre serveur  ──►  PurrPlan
+  (son mot de       (votre design,        (porte le jeton     (ne le connaît
+   passe à vous)     votre domaine)        du client)          jamais)
+```
+
+Vous gérez vos comptes, vos mots de passe, vos rôles — comme pour n'importe
+quelle fonctionnalité de votre produit. PurrPlan ne sait rien de vos clients :
+il sait qu'un jeton donné agit sur un espace de travail donné. La
+correspondance « mon client n° 42 ↔ ce `workspace_uuid` » vit dans **votre**
+base.
+
+### La règle qui compte
+
+**Le jeton ne descend jamais dans le navigateur.** Ni celui de 90 jours, ni un
+jeton de session. Sur l'API REST, un jeton est tout ou rien : il n'y a pas de
+portées. Un jeton exposé côté client, c'est la possibilité de supprimer les
+publications et les comptes sociaux de votre client, depuis sa console
+JavaScript.
+
+Votre front appelle **vos** routes (`/api/clients/42/posts`), votre serveur
+appelle PurrPlan. Le serveur d'exemple fourni ne fait rien d'autre.
+
+### Le compte PurrPlan de votre client
+
+`POST /api/partner/clients` en crée un, avec le mot de passe que vous
+choisissez. **Vous n'avez pas à le lui transmettre** : il ne sert que si vous
+décidez, un jour, de lui ouvrir l'interface PurrPlan en direct. Le parcours
+normal ne l'utilise jamais — y compris la connexion des réseaux sociaux, qui
+passe par le lien du § 3.
+
+### Jetons de session, quand votre serveur n'est pas seul
+
+Un traitement par lot, un worker, une fonction de bord : plutôt que d'y copier
+le jeton de 90 jours, frappez un jeton court.
+
+```http
+POST /api/partner/session-token
+X-Partner-Secret: <secret>
+
+{ "workspace_uuid": "9f1c…", "ttl_minutes": 60, "label": "worker-nuit" }
+```
+
+```json
+{ "token": "…", "token_id": 128, "workspace_uuid": "9f1c…",
+  "expires_at": "2026-09-21T09:12:44+00:00" }
+```
+
+`ttl_minutes` va de 5 à 1440 (défaut : 60). Pour le révoquer avant l'heure —
+fin de mission, incident :
+
+```http
+DELETE /api/partner/session-token/128
+X-Partner-Secret: <secret>
+
+{ "workspace_uuid": "9f1c…" }
+```
+
+> Un jeton de session n'a **pas moins de pouvoir** que le jeton maître,
+> seulement moins de temps. Il réduit le rayon d'une fuite ; il ne rend pas le
+> navigateur sûr.
+
+### Et si un client veut vraiment entrer dans PurrPlan ?
+
+Donnez-lui le mot de passe que vous aviez choisi à la création, ou faites-lui
+utiliser « Mot de passe oublié » sur `app.purrplan.ai`. Il verra alors
+l'interface PurrPlan, pas la vôtre — à réserver aux cas où c'est ce que vous
+voulez.
+
+## 5. Piloter le contenu — API REST
 
 Base : `https://app.purrplan.ai/app/api` — `Authorization: Bearer <api_token>`.
 Référence complète : [rest-api.md](./rest-api.md).
@@ -187,7 +261,7 @@ GET    /app/api/{workspace}/posts?status=…      → suivre
 DELETE /app/api/{workspace}/posts/{uuid}        → supprimer
 ```
 
-## 5. Être prévenu — webhooks
+## 6. Être prévenu — webhooks
 
 Posez-les **par API**, sans passer par l'interface :
 
