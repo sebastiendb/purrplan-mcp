@@ -121,6 +121,22 @@ const routes = {
 
     const clients = await loadClients();
 
+    // `created: false` = ce client était déjà le nôtre (appel rejoué, ou
+    // compte rattaché par le mot de passe). On ne duplique pas la fiche.
+    const existing = clients.find((c) => c.workspaceUuid === created.workspace_uuid);
+
+    if (existing) {
+      Object.assign(existing, {
+        token: created.token,
+        apiToken: created.api_token,
+        expiresAt: created.expires_at,
+      });
+
+      await saveClients(clients);
+
+      return { workspace_uuid: created.workspace_uuid, expires_at: created.expires_at, created: false };
+    }
+
     clients.push({
       name: body.name,
       email: body.email,
@@ -133,7 +149,12 @@ const routes = {
 
     await saveClients(clients);
 
-    return { workspace_uuid: created.workspace_uuid, expires_at: created.expires_at };
+    return { workspace_uuid: created.workspace_uuid, expires_at: created.expires_at, created: true };
+  },
+
+  /** Ce que PurrPlan sait de nos clients — utile pour se resynchroniser. */
+  'GET /api/clients/remote': async () => {
+    return purrplan('/api/partner/clients', { partnerSecret: PARTNER_SECRET });
   },
 
   /** 2. Renouveler les jetons avant les 90 jours. */

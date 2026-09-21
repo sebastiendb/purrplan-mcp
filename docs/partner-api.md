@@ -36,7 +36,10 @@ renvoie à l'adresse que vous avez choisie.
 ## Prérequis
 
 Un secret partenaire, délivré par PurrPlan. Il ne quitte jamais votre serveur :
-il ne sert qu'à créer des clients et à renouveler leurs jetons.
+il sert à créer vos clients, les lister et renouveler leurs jetons.
+
+Ce secret ne fait pas qu'ouvrir la porte, il **dit qui entre** : c'est lui qui
+identifie votre agence, et donc de qui vos clients héritent leurs droits.
 
 ```
 X-Partner-Secret: <votre secret>
@@ -58,6 +61,7 @@ Content-Type: application/json
 
 ```json
 {
+  "created":        true,
   "token":          "…",      // MCP + connect-link
   "api_token":      "…",      // API REST
   "expires_at":     "2026-12-20T09:12:44+00:00",
@@ -69,9 +73,42 @@ Content-Type: application/json
 
 | Code | Signification |
 |---|---|
-| `201` | Créé. **Les jetons ne sont rendus qu'ici** — stockez-les. |
-| `409` | Cette adresse a déjà un compte PurrPlan. Rien n'est créé, aucun jeton rendu. |
-| `401` | Secret absent ou faux. |
+| `201` | Créé. |
+| `200` | **Ce client est déjà le vôtre** : rien n'a été créé, on vous rend son `workspace_uuid` et une paire de jetons neuve. `created: false`. Rejouez l'appel autant de fois que nécessaire. |
+| `409` | Cette adresse a un compte PurrPlan qui n'est **pas** dans votre programme. Rien n'est créé. |
+| `401` | Secret absent, faux, ou rattaché à aucune agence. |
+
+> **Le `200` est votre filet.** En développant une intégration, on relance le
+> même appel dix fois : vous récupérez l'espace au lieu de rester bloqué sur un
+> refus. C'est aussi ainsi qu'on **rattache** un compte créé avant cette
+> version — envoyez le mot de passe que vous aviez choisi, il fait preuve.
+
+### Ce dont votre client hérite
+
+Le compte créé **hérite de votre plan**. Vous avez payé : vos clients publient,
+posent des webhooks et utilisent l'API sans qu'on leur propose d'essai ni
+d'abonnement. Aucun écran de paiement PurrPlan ne leur sera jamais présenté.
+
+Les limites (nombre de marques, de comptes sociaux, crédits IA) sont les
+vôtres, partagées entre vos clients.
+
+## 1 bis. Lister vos clients
+
+```http
+GET /api/partner/clients
+X-Partner-Secret: <secret>
+```
+
+```json
+{ "data": [
+  { "workspace_uuid": "9f1c…", "name": "Atelier Nord",
+    "email": "contact@ateliernord.fr", "created_at": "2026-09-21T14:02:11+00:00" }
+] }
+```
+
+Chaque agence ne voit que ses propres clients, et ne peut agir que sur eux :
+un `workspace_uuid` qui ne vous appartient pas répond `404`, jamais `403` — on
+ne confirme pas son existence.
 
 > Le mot de passe vous est rendu parce que vous l'avez choisi. Vous n'en avez
 > besoin **que** si vous voulez, un jour, donner à ce client l'accès direct à
