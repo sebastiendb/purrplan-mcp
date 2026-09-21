@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Console agence — PurrPlan</title>
+<link rel="icon" href="/favicon.png">
+<style>
+  :root{
+    --bg:hsl(30 100% 97.5%);
+    --card:hsl(30 60% 98.5%);
+    --ink:hsl(354 16% 21%);
+    --muted:hsl(33 24% 44%);
+    --primary:hsl(24 88% 69%);
+    --primary-ink:#fff;
+    --lav:hsl(270 100% 92%);
+    --line:hsl(30 30% 90%);
+    --ok:hsl(152 45% 38%);
+    --ko:hsl(0 65% 52%);
+    --radius:14px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:hsl(20 20% 8%); --card:hsl(20 16% 12%); --ink:hsl(30 50% 95%);
+      --muted:hsl(30 12% 62%); --line:hsl(20 12% 22%); --lav:hsl(270 30% 26%);
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.55 ui-sans-serif,-apple-system,"Segoe UI",Inter,system-ui,sans-serif}
+  a{color:inherit}
+  .wrap{max-width:1080px;margin:0 auto;padding-block:28px;padding-inline:20px}
+
+  header{display:flex;align-items:center;gap:16px;margin-bottom:8px;flex-wrap:wrap}
+  header img{width:56px;height:56px;object-fit:contain;flex:none}
+  header h1{margin:0;font-size:22px;letter-spacing:-.01em}
+  header p{margin:2px 0 0;color:var(--muted);font-size:13.5px}
+  .badge{margin-left:auto;background:var(--lav);color:var(--ink);
+    padding:5px 11px;border-radius:999px;font-size:12px;font-weight:600}
+
+  .grid{display:grid;gap:18px;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));margin-top:22px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    padding:18px 18px 20px}
+  .card h2{margin:0 0 3px;font-size:14px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+  .card .hint{margin:0 0 14px;font-size:13px;color:var(--muted)}
+
+  label{display:block;font-size:12.5px;font-weight:600;margin:10px 0 4px}
+  input,select,textarea{width:100%;padding:9px 11px;border:1px solid var(--line);
+    border-radius:9px;background:var(--bg);color:var(--ink);font:inherit;font-size:14px}
+  textarea{min-height:84px;resize:vertical}
+  .row{display:flex;gap:10px}.row>*{flex:1}
+
+  button{margin-top:14px;width:100%;padding:10px 14px;border:0;border-radius:10px;
+    background:var(--primary);color:var(--primary-ink);font:inherit;font-weight:650;
+    cursor:pointer;transition:filter .15s,transform .05s}
+  button:hover{filter:brightness(1.05)}
+  button:active{transform:translateY(1px)}
+  button.ghost{background:transparent;color:var(--ink);border:1px solid var(--line);font-weight:550}
+  button:disabled{opacity:.5;cursor:not-allowed}
+
+  .nets{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
+  .nets button{width:auto;margin:0;padding:7px 12px;font-size:13px;font-weight:550;
+    background:var(--bg);color:var(--ink);border:1px solid var(--line)}
+  .nets button:hover{border-color:var(--primary);color:var(--primary)}
+
+  ul.list{list-style:none;margin:12px 0 0;padding:0}
+  ul.list li{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line);font-size:14px}
+  ul.list li:first-child{border-top:0}
+  .dot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--ok)}
+  .dot.off{background:var(--ko)}
+  .tag{margin-left:auto;font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+
+  pre{margin:12px 0 0;padding:12px;background:var(--bg);border:1px solid var(--line);
+    border-radius:10px;font-size:12px;max-height:230px;overflow:auto;white-space:pre-wrap;word-break:break-word}
+  .empty{color:var(--muted);font-size:13.5px;font-style:italic;margin-top:12px}
+
+  .flash{margin-top:18px;padding:11px 14px;border-radius:10px;font-size:14px;display:none}
+  .flash.ok{display:block;background:color-mix(in srgb,var(--ok) 14%,transparent);border:1px solid var(--ok)}
+  .flash.ko{display:block;background:color-mix(in srgb,var(--ko) 12%,transparent);border:1px solid var(--ko)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <img src="/tanuki.png" alt="">
+    <div>
+      <h1>Console agence</h1>
+      <p>Vos clients, leurs réseaux, leurs publications — sans qu'ils ouvrent jamais PurrPlan.</p>
+    </div>
+    <span class="badge">API partenaire</span>
+  </header>
+
+  <div class="flash" id="flash"></div>
+
+  <div class="grid">
+
+    <section class="card">
+      <h2>1 · Clients</h2>
+      <p class="hint">Chaque client devient un espace de travail PurrPlan isolé.</p>
+
+      <label for="pick">Client actif</label>
+      <select id="pick"></select>
+
+      <ul class="list" id="clientInfo"></ul>
+
+      <details style="margin-top:16px">
+        <summary style="cursor:pointer;font-size:13.5px;font-weight:600">Ajouter un client</summary>
+        <label for="name">Nom</label>
+        <input id="name" placeholder="Atelier Nord">
+        <label for="email">E-mail</label>
+        <input id="email" type="email" placeholder="contact@ateliernord.fr">
+        <button id="create">Créer l'espace</button>
+      </details>
+    </section>
+
+    <section class="card">
+      <h2>2 · Réseaux</h2>
+      <p class="hint">Un clic ouvre l'autorisation chez le réseau, puis vous ramène ici.</p>
+
+      <div class="nets" id="nets"></div>
+      <ul class="list" id="accounts"></ul>
+      <button class="ghost" id="refresh">Rafraîchir depuis PurrPlan</button>
+    </section>
+
+    <section class="card">
+      <h2>3 · Publier</h2>
+      <p class="hint">Validé avant programmation : ce qui passe ici passera chez le réseau.</p>
+
+      <label for="text">Message</label>
+      <textarea id="text" placeholder="Le texte commun à tous les comptes sélectionnés…"></textarea>
+
+      <div class="row">
+        <div><label for="date">Date</label><input id="date" type="date"></div>
+        <div><label for="time">Heure</label><input id="time" type="time" value="08:00"></div>
+      </div>
+
+      <ul class="list" id="targets"></ul>
+      <button id="publish">Programmer</button>
+    </section>
+
+    <section class="card">
+      <h2>4 · Événements</h2>
+      <p class="hint">Webhooks signés reçus de PurrPlan. Signature invalide = rejeté.</p>
+
+      <button class="ghost" id="hook">Poser le webhook de ce client</button>
+      <pre id="events">Aucun événement reçu.</pre>
+    </section>
+
+  </div>
+</div>
+
+<script type="module">
+const $ = (id) => document.getElementById(id);
+let clients = [];
+let accounts = [];
+
+const NETWORKS = [
+  ['facebook_page','Facebook'], ['instagram_direct','Instagram'], ['threads','Threads'],
+  ['twitter','X'], ['linkedin','LinkedIn'], ['linkedin_page','LinkedIn Page'],
+  ['youtube','YouTube'], ['tiktok','TikTok'], ['pinterest','Pinterest'],
+  ['bluesky','Bluesky'], ['reddit','Reddit'], ['telegram','Telegram'],
+];
+
+function flash(message, ok = true) {
+  const el = $('flash');
+  el.textContent = message;
+  el.className = `flash ${ok ? 'ok' : 'ko'}`;
+  setTimeout(() => { el.className = 'flash'; }, 6000);
+}
+
+async function api(path, options = {}) {
+  const response = await fetch(path, {
+    ...options,
+    headers: options.body ? { 'Content-Type': 'application/json' } : {},
+  });
+  const payload = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new Error(payload?.message ?? `Erreur ${response.status}`);
+  }
+
+  return payload;
+}
+
+const current = () => clients.find((c) => c.workspaceUuid === $('pick').value);
+
+async function loadClients() {
+  clients = await api('/api/clients');
+
+  $('pick').innerHTML = clients.length
+    ? clients.map((c) => `<option value="${c.workspaceUuid}">${c.name}</option>`).join('')
+    : '<option value="">— aucun client —</option>';
+
+  renderClient();
+}
+
+function renderClient() {
+  const client = current();
+
+  $('clientInfo').innerHTML = client
+    ? `<li><span class="dot"></span>${client.email}<span class="tag">${client.workspaceUuid.slice(0, 8)}…</span></li>
+       <li><span class="dot ${new Date(client.expiresAt) < new Date() ? 'off' : ''}"></span>
+           Jetons valides jusqu'au ${new Date(client.expiresAt).toLocaleDateString('fr-FR')}</li>`
+    : '<li class="empty">Créez un premier client pour commencer.</li>';
+
+  $('nets').innerHTML = NETWORKS
+    .map(([id, label]) => `<button data-provider="${id}" ${client ? '' : 'disabled'}>+ ${label}</button>`)
+    .join('');
+}
+
+async function loadAccounts() {
+  const client = current();
+  if (!client) return;
+
+  const response = await api(`/api/accounts?workspace_uuid=${client.workspaceUuid}`);
+  accounts = response.data ?? response ?? [];
+
+  $('accounts').innerHTML = accounts.length
+    ? accounts.map((a) => `
+        <li><span class="dot ${a.authorized === false ? 'off' : ''}"></span>
+        ${a.name ?? a.username ?? '—'}
+        <span class="tag">${a.provider}${a.authorized === false ? ' · à reconnecter' : ''}</span></li>`).join('')
+    : '<li class="empty">Aucun réseau connecté.</li>';
+
+  $('targets').innerHTML = accounts.length
+    ? accounts.map((a) => `
+        <li><input type="checkbox" value="${a.id}" style="width:auto;flex:none">
+        ${a.name ?? a.username} <span class="tag">${a.provider}</span></li>`).join('')
+    : '<li class="empty">Connectez un réseau pour publier.</li>';
+}
+
+$('pick').addEventListener('change', () => { renderClient(); loadAccounts(); });
+
+$('create').addEventListener('click', async () => {
+  try {
+    await api('/api/clients', {
+      method: 'POST',
+      body: JSON.stringify({ name: $('name').value, email: $('email').value }),
+    });
+    $('name').value = $('email').value = '';
+    await loadClients();
+    flash('Espace créé.');
+  } catch (error) {
+    flash(error.message, false);
+  }
+});
+
+$('nets').addEventListener('click', async (event) => {
+  const provider = event.target.dataset?.provider;
+  if (!provider) return;
+
+  const client = current();
+
+  try {
+    const extra = provider === 'telegram'
+      ? { channel: prompt('Nom du canal Telegram (@purrplanbot doit y être admin) :') }
+      : undefined;
+
+    const link = await api('/api/connect-link', {
+      method: 'POST',
+      body: JSON.stringify({ workspace_uuid: client.workspaceUuid, provider, extra }),
+    });
+
+    // Le lien vaut session et ne sert qu'une fois : on l'ouvre, on ne le garde pas.
+    window.location.href = link.url;
+  } catch (error) {
+    flash(error.message, false);
+  }
+});
+
+$('refresh').addEventListener('click', () => loadAccounts().catch((e) => flash(e.message, false)));
+
+$('publish').addEventListener('click', async () => {
+  const client = current();
+  const ids = [...document.querySelectorAll('#targets input:checked')].map((i) => Number(i.value));
+
+  if (!ids.length) return flash('Sélectionnez au moins un compte.', false);
+
+  try {
+    await api('/api/posts', {
+      method: 'POST',
+      body: JSON.stringify({
+        workspace_uuid: client.workspaceUuid,
+        account_ids: ids,
+        text: $('text').value,
+        date: $('date').value || undefined,
+        time: $('time').value || undefined,
+      }),
+    });
+    $('text').value = '';
+    flash('Publication programmée.');
+  } catch (error) {
+    flash(error.message, false);
+  }
+});
+
+$('hook').addEventListener('click', async () => {
+  try {
+    await api('/api/webhooks', {
+      method: 'POST',
+      body: JSON.stringify({ workspace_uuid: current().workspaceUuid }),
+    });
+    flash('Webhook posé.');
+  } catch (error) {
+    flash(error.message, false);
+  }
+});
+
+async function pollEvents() {
+  try {
+    const list = await api('/api/events');
+    $('events').textContent = list.length
+      ? list.map((e) => `${e.at?.slice(11, 19) ?? ''}  ${e.event}`).join('\n')
+      : 'Aucun événement reçu.';
+  } catch { /* le serveur redémarre, on réessaiera */ }
+}
+
+// Retour du parcours de connexion sociale.
+const params = new URLSearchParams(location.search);
+if (params.has('status')) {
+  flash(
+    params.get('status') === 'success'
+      ? 'Réseau autorisé. Vérification auprès de PurrPlan…'
+      : `Connexion interrompue (${params.get('error') ?? 'inconnu'}).`,
+    params.get('status') === 'success'
+  );
+  history.replaceState({}, '', '/');
+}
+
+await loadClients();
+await loadAccounts().catch(() => {});
+pollEvents();
+setInterval(pollEvents, 5000);
+</script>
+</body>
+</html>

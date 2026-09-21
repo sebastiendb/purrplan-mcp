@@ -1,180 +1,210 @@
-# API partenaire
+# API partenaire — construire son produit au-dessus de PurrPlan
 
-Quatre appels, dans cet ordre. Vous créez le client, vous rangez le jeton, vous programmez avec, vous lui faites rattacher un réseau, puis vous vérifiez qu'un post est bien parti.
+> Pour une agence ou un éditeur qui veut gérer les réseaux sociaux de SES clients
+> depuis SA propre interface. Le client final n'ouvre jamais PurrPlan, ne crée
+> jamais de compte, ne voit jamais notre marque.
 
-Base : `https://app.purrplan.ai`. Le client ne se connecte pas à l'interface.
+Trois choses à comprendre avant de coder, et tout le reste en découle.
 
-Deux secrets. Ne les mélangez pas.
+### 1. Un client = un espace de travail
 
-| Secret | Qui l'a | Sert à |
+Vous appelez `POST /api/partner/clients`. PurrPlan crée le compte, son espace de
+travail, et vous rend les jetons. Vous stockez `workspace_uuid` à côté de votre
+propre client en base. C'est votre seule clé de correspondance.
+
+### 2. Deux jetons, deux surfaces — ils ne sont pas interchangeables
+
+| Jeton | Ouvre | Refusé sur |
 |---|---|---|
-| `X-Partner-Secret` | Vous, une seule fois | Créer un client |
-| Jeton `Bearer` | Un par client, rendu à la création | Programmer, demander un lien de connexion |
+| `api_token` | l'**API REST** `https://app.purrplan.ai/app/api` | l'endpoint MCP (liste d'outils vide) |
+| `token` | l'**endpoint MCP** `https://app.purrplan.ai/api/mcp` et `connect-link` | l'API REST (403) |
 
-Le secret partenaire ne programme rien. Le jeton client ne crée pas d'autres clients. Ne collez jamais le secret dans un exemple que vous committez : une variable d'environnement suffit.
+Ce n'est pas une maladresse, c'est la garantie centrale : vous pouvez confier le
+jeton MCP à un agent IA — le vôtre, ou celui de votre client — sans lui ouvrir la
+suppression de comptes. **Utilisez `api_token` pour votre produit, `token` pour
+les agents.**
 
-Le secret n'est pas public. S'il n'est pas encore posé côté PurrPlan, l'étape 1 répond `401` pour tout le monde.
+### 3. Connecter un réseau se fait par un lien, pas par un appel
+
+Aucune API ne peut « ajouter un compte Instagram » : Meta, Google et LinkedIn
+exigent que la personne autorise elle-même, dans un navigateur. Vous demandez donc
+un **lien** à PurrPlan, vous le présentez à votre client, et PurrPlan vous le
+renvoie à l'adresse que vous avez choisie.
+
+---
+
+## Prérequis
+
+Un secret partenaire, délivré par PurrPlan. Il ne quitte jamais votre serveur :
+il ne sert qu'à créer des clients et à renouveler leurs jetons.
+
+```
+X-Partner-Secret: <votre secret>
+```
+
+Base URL : `https://app.purrplan.ai`
+
+---
 
 ## 1. Créer un client
 
-```bash
-curl -sS -X POST https://app.purrplan.ai/api/partner/clients \
-  -H "Content-Type: application/json" \
-  -H "X-Partner-Secret: $PURRPLAN_PARTNER_SECRET" \
-  -d '{
-    "name": "Atelier Nord",
-    "email": "claire@atelier-nord.example",
-    "password": "Un-mot-de-passe-solide-1"
-  }'
-```
+```http
+POST /api/partner/clients
+X-Partner-Secret: <secret>
+Content-Type: application/json
 
-`201` — gardez ces trois champs. Vous ne les reverrez pas ensemble.
+{ "name": "Atelier Nord", "email": "contact@ateliernord.fr", "password": "…" }
+```
 
 ```json
 {
-  "token": "1|le-jeton-en-clair-une-seule-fois",
-  "workspace_uuid": "4abc6745-4415-475e-8c9b-0f11b95bdeb2",
-  "password": "Un-mot-de-passe-solide-1",
-  "user": { "name": "Atelier Nord", "email": "claire@atelier-nord.example" }
+  "token":          "…",      // MCP + connect-link
+  "api_token":      "…",      // API REST
+  "expires_at":     "2026-12-20T09:12:44+00:00",
+  "workspace_uuid": "9f1c…",
+  "password":       "…",      // celui que vous avez envoyé
+  "user": { "name": "Atelier Nord", "email": "contact@ateliernord.fr" }
 }
 ```
 
-Le mot de passe en clair n'existe que dans cette réponse. Un appel plus tard ne le redonne pas, et ne le journalise pas. Le jeton s'appelle `[MCP] partner`, expire dans 90 jours, et porte toutes les portées connues : `read`, `write`, `ai`, `media`, `inbox:read`, `inbox:reply`, `analytics:read`.
-
-Refus :
-
-| Code | Quand | Corps |
-|---|---|---|
-| `401` | Secret absent, faux, ou pas encore posé | `{ "message": "Unauthorized." }` |
-| `409` | Cet email a déjà un compte. Rien n'est créé : ni utilisateur, ni workspace, ni jeton | `{ "message": "Un compte existe déjà pour cette adresse.", "errors": { "email": ["Un compte existe déjà pour cette adresse."] } }` |
-| `422` | Nom, email ou mot de passe refusé | `errors` par champ. Mot de passe : au moins 8 caractères |
-
-## 2. Programmer avec ce jeton
-
-Le jeton parle à `POST /api/mcp`. Pas à une autre route.
-
-```bash
-curl -sS -X POST https://app.purrplan.ai/api/mcp \
-  -H "Authorization: Bearer $CLIENT_TOKEN" \
-  -H "Content-Type: application/json" \
-  -H "Accept: application/json, text/event-stream" \
-  -d '{
-    "jsonrpc": "2.0",
-    "id": 1,
-    "method": "tools/call",
-    "params": { "name": "list_workspaces", "arguments": {} }
-  }'
-```
-
-La réponse contient le `workspace_uuid` de l'étape 1.
-
-Pour poser un post, prenez d'abord les `id` numériques dans `list_accounts`, puis :
-
-```bash
-curl -sS -X POST https://app.purrplan.ai/api/mcp \
-  -H "Authorization: Bearer $CLIENT_TOKEN" \
-  -H "Content-Type: application/json" \
-  -H "Accept: application/json, text/event-stream" \
-  -d '{
-    "jsonrpc": "2.0",
-    "id": 2,
-    "method": "tools/call",
-    "params": {
-      "name": "create_draft_post",
-      "arguments": {
-        "workspace_uuid": "'"$WORKSPACE_UUID"'",
-        "account_ids": [12],
-        "content": "Ouverture samedi, 10 h.",
-        "scheduled_at": "2026-09-20T08:00:00Z"
-      }
-    }
-  }'
-```
-
-Sans `scheduled_at`, le post reste un brouillon. Les 18 outils et leurs portées sont dans le [README](../README.md). Un jeton sans la portée demandée reçoit `Insufficient scopes`.
-
-```js
-import { createPurrPlanClient } from "@purrplan/mcp";
-
-const client = createPurrPlanClient({ token: process.env.CLIENT_TOKEN });
-const workspaces = await client.listWorkspaces();
-```
-
-Un jeton créé à la main, hors de cette API, se fait dans l'espace de travail : `https://app.purrplan.ai/{workspace_uuid}/api-mcp`. L'ancienne page profil `/app/mcp-integration` ne fait que rediriger là.
-
-## 3. Rattacher un réseau
-
-Vous ne remplacez pas l'adresse enregistrée chez Meta ou X. Le navigateur revient d'abord sur PurrPlan. PurrPlan envoie ensuite le visiteur sur l'URL que vous avez donnée pour cette tentative.
-
-Le lien se demande avec le **jeton du client**, pas avec le secret partenaire.
-
-```bash
-curl -sS -X POST https://app.purrplan.ai/api/partner/connect-link \
-  -H "Authorization: Bearer $CLIENT_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "workspace_uuid": "'"$WORKSPACE_UUID"'",
-    "provider": "facebook",
-    "return_url": "https://outil.example/purrplan/connected"
-  }'
-```
-
-`200` :
-
-```json
-{
-  "url": "https://www.facebook.com/dialog/oauth?…&state=4abc6745-4415-475e-8c9b-0f11b95bdeb2",
-  "provider": "facebook_page",
-  "workspace_uuid": "4abc6745-4415-475e-8c9b-0f11b95bdeb2",
-  "attempt": "f3c1…-uuid-de-la-tentative"
-}
-```
-
-Ouvrez `url` dans le navigateur du client. `facebook` est un alias : la réponse dit `facebook_page`. Un nom inconnu (`facebook_page` est le bon nom, `facebok` non) répond `422` avec `Provider [facebok] not supported.` et aucun champ `url`.
-
-L'URL de retour doit être publique, en `http` ou `https`, port 80 ou 443. Refusés avant tout lien : `127.0.0.1`, `localhost`, une IP privée, une IP de metadata, un nom interne d'un seul mot, un autre schéma, un autre port, un hôte absent, un hôte qui ne se résout pas. La réponse est `422`, sans champ `url` :
-
-```json
-{
-  "message": "Cette URL pointe vers une adresse non publique.",
-  "errors": { "return_url": ["Cette URL pointe vers une adresse non publique."] }
-}
-```
-
-Les autres messages de ce champ : `URL invalide.`, `Seules les URL http et https sont acceptées.`, `URL sans nom d'hôte.`, `Seuls les ports 80 et 443 sont acceptés.`, `Nom d'hôte introuvable.`
-
-Un `422` de validation (uuid mal formé, champ manquant) a la forme Laravel `{ "message", "errors": { champ: […] } }`. Un provider inconnu est un autre `422`, avec seulement `{ "message": "Provider [facebok] not supported." }` et pas de clé `errors`.
-
-`403` et `{ "message": "Workspace inaccessible." }` si le jeton n'est pas membre du workspace demandé, ou si l'uuid n'existe pas. Un lien émis pour un workspace ne peut pas attacher le compte à un autre : le `state` OAuth est l'uuid de ce workspace, et le réseau le renvoie tel quel.
-
-### Facebook : un arrêt de plus
-
-Une Page Facebook ne s'attache pas au premier retour. PurrPlan affiche le choix de la page. Une fois la page choisie et attachée, le navigateur part vers votre URL et la tentative est consommée.
-
-Avant cet attachement, un quota, un jeton pas encore échangé, ou une liste de pages vide prévient et **ne** consomme **pas** la tentative : un second essai revient encore chez vous. Ce n'est pas le cas d'un attachement réussi : là, la tentative est brûlée, et un retour suivant ne repart plus vers votre URL.
-
-Les réseaux sans cet écran reviennent directement après le consentement.
-
-### Ce que vous recevez
-
-```
-https://outil.example/purrplan/connected?status=success&attempt=f3c1…
-https://outil.example/purrplan/connected?status=error&attempt=f3c1…&error=access_denied
-```
-
-| Paramètre | Sens |
+| Code | Signification |
 |---|---|
-| `status` | `success` ou `error` |
-| `attempt` | L'uuid rendu avec le lien. C'est lui qui rattache ce retour à votre demande. |
-| `error` | Présent seulement en erreur. Message du réseau, ou message PurrPlan. |
+| `201` | Créé. **Les jetons ne sont rendus qu'ici** — stockez-les. |
+| `409` | Cette adresse a déjà un compte PurrPlan. Rien n'est créé, aucun jeton rendu. |
+| `401` | Secret absent ou faux. |
 
-La tentative vit 30 minutes, une par workspace. Une nouvelle demande remplace la précédente. Au-delà de 30 minutes, le retour ne part plus vers votre URL.
+> Le mot de passe vous est rendu parce que vous l'avez choisi. Vous n'en avez
+> besoin **que** si vous voulez, un jour, donner à ce client l'accès direct à
+> l'interface PurrPlan. Le parcours normal ne l'utilise jamais.
 
-Le client doit être connecté à PurrPlan dans ce navigateur au moment du retour. Le premier passage par le lien de connexion le fait. Sans session, PurrPlan le renvoie vers sa page de login avant de lire le `state`.
+## 2. Renouveler les jetons
 
-## 4. Savoir qu'un post est parti
+Les jetons vivent **90 jours**. Passé ce délai vos appels répondent `401`, sans
+autre signal. Prévoyez la rotation dès maintenant — une tâche mensuelle suffit.
 
-Ce n'est pas l'API partenaire. Dans l'espace de travail, page **Webhooks** (`/{workspace}/webhooks`, admin seulement), vous déclarez une URL publique et les événements. PurrPlan poste ce JSON :
+```http
+POST /api/partner/clients/{workspace_uuid}/tokens
+X-Partner-Secret: <secret>
+```
+
+Rend la même paire `token` / `api_token` / `expires_at`. **Les anciens jetons sont
+révoqués immédiatement** : basculez vos enregistrements dans la même transaction.
+
+## 3. Connecter un réseau social
+
+### 3.1 Demander le lien
+
+```http
+POST /api/partner/connect-link
+Authorization: Bearer <token>            ← le jeton MCP du CLIENT, pas le secret
+Content-Type: application/json
+
+{
+  "workspace_uuid": "9f1c…",
+  "provider":       "youtube",
+  "return_url":     "https://votre-outil.fr/clients/42/reseaux"
+}
+```
+
+```json
+{
+  "url":            "https://app.purrplan.ai/partner-connect/youtube/…?signature=…",
+  "provider":       "youtube",
+  "workspace_uuid": "9f1c…",
+  "attempt":        "3b0e…",
+  "expires_in":     1800
+}
+```
+
+Vous redirigez votre client vers `url` (ou vous en faites un bouton). Il autorise
+chez YouTube. PurrPlan enregistre le compte, puis le renvoie sur **votre**
+`return_url`.
+
+### 3.2 Le retour
+
+```
+https://votre-outil.fr/clients/42/reseaux?status=success&attempt=3b0e…
+https://votre-outil.fr/clients/42/reseaux?status=error&attempt=3b0e…&error=…
+```
+
+`attempt` vous permet de recoller le retour à la demande que vous aviez lancée —
+utile quand votre client connecte trois réseaux à la suite.
+
+> **Ne vous fiez pas à `status=success` pour dire « c'est connecté ».**
+> Appelez `GET /app/api/{workspace}/accounts` et regardez ce qui est réellement
+> là. Un retour est un signal d'interface, pas un état.
+
+### 3.3 Ce que vous pouvez passer
+
+| Champ | Obligatoire | Remarque |
+|---|---|---|
+| `workspace_uuid` | oui | doit appartenir au porteur du jeton, sinon `403` |
+| `provider` | oui | voir la liste ci-dessous |
+| `return_url` | oui | **https public uniquement** — une IP privée, `localhost` ou un port exotique est refusé en `422` (protection anti-SSRF) |
+| `extra.channel` | Telegram seulement | le canal dont `@purrplanbot` est administrateur |
+
+Réseaux : `facebook_page` (alias `facebook`), `instagram`, `instagram_direct`,
+`threads`, `twitter` (alias `x`), `linkedin`, `linkedin_page`, `youtube`,
+`google_business`, `pinterest`, `tiktok`, `bluesky`, `reddit`, `telegram`.
+`mastodon` se connecte depuis l'interface PurrPlan : son protocole impose
+d'enregistrer une application sur l'instance choisie avant même de savoir où
+rediriger.
+
+### 3.4 Les erreurs que vous verrez vraiment
+
+| Code | Cause | Ce que vous faites |
+|---|---|---|
+| `403` | l'espace n'appartient pas au jeton | vous avez croisé deux clients |
+| `422` + `supported_providers` | nom de réseau inconnu | corrigez le nom |
+| `422` + `missing_field` | champ propre au réseau absent | demandez-le à votre client avant |
+| `422` + `usage` | plafond de comptes du plan atteint | proposez une montée de plan |
+| `401` | jeton expiré | § 2 |
+
+### 3.5 Le lien est à usage unique
+
+Il vaut ouverture de session pour votre client, pendant 30 minutes. Rejoué, il
+renvoie chez vous avec `status=error&error=link_expired` — jamais sur un écran
+PurrPlan. Ne le mettez ni en cache, ni dans un e-mail conservé.
+
+## 4. Piloter le contenu — API REST
+
+Base : `https://app.purrplan.ai/app/api` — `Authorization: Bearer <api_token>`.
+Référence complète : [rest-api.md](./rest-api.md).
+
+Le strict nécessaire pour un produit d'agence :
+
+```http
+GET    /app/api/workspaces                      → vos espaces
+GET    /app/api/{workspace}/accounts            → comptes connectés + état d'autorisation
+POST   /app/api/{workspace}/media               → envoi d'un fichier (multipart)
+POST   /app/api/{workspace}/posts               → créer / programmer
+GET    /app/api/{workspace}/posts?status=…      → suivre
+DELETE /app/api/{workspace}/posts/{uuid}        → supprimer
+```
+
+## 5. Être prévenu — webhooks
+
+Posez-les **par API**, sans passer par l'interface :
+
+```http
+POST /app/api/{workspace}/webhooks
+Authorization: Bearer <api_token>
+
+{
+  "callback_url": "https://votre-outil.fr/purrplan/hook",
+  "events": ["post.published", "post.publishing_failed", "account.added", "account.deleted"],
+  "secret": "<votre secret HMAC>"
+}
+```
+
+`GET …/webhooks/events` liste les événements disponibles — ne recopiez pas la
+liste en dur, elle bouge. `PUT` accepte une mise à jour partielle
+(`{"active": false}` suffit à couper un webhook). Le secret n'est jamais relu :
+il s'écrit et se remplace.
+
+### Ce que PurrPlan vous envoie
+
+PurrPlan poste ce JSON :
 
 ```json
 {
@@ -237,3 +267,20 @@ const ok = verifyWebhookSignature({
 ```
 
 L'exemple commenté est dans [examples/partner-flow.mjs](../examples/partner-flow.mjs). Il signe le même corps que le serveur, slashs échappés compris, et le fait passer par `verifyWebhookSignature`.
+
+---
+
+## Exemple complet
+
+Un serveur Node minimal, l'interface qui va avec, et la vérification de
+signature : [`examples/partner-starter/`](../examples/partner-starter/).
+
+## Ce qu'il ne faut pas faire
+
+- **Réutiliser un `connect-link`.** Il vaut session. Un par clic.
+- **Traiter `status=success` comme une vérité.** Vérifiez par `GET /accounts`.
+- **Stocker le secret partenaire côté navigateur.** Il crée des comptes.
+- **Recalculer le JSON pour vérifier la signature.** Signez les octets reçus :
+  PHP échappe les slashs (`https:\/\/…`), votre ré-encodage ne retombera pas
+  dessus.
+- **Ignorer `expires_at`.** À J+90 tout s'arrête d'un coup.
