@@ -239,6 +239,33 @@ tant que tout va bien :
 **Gardez l'`uuid`** : c'est lui qui adresse le post partout ailleurs (`GET`,
 `PUT`, `DELETE`, `schedule`). L'`id` entier n'est utile qu'en interne.
 
+### Carrousels et publications à plusieurs médias
+
+Il n'y a **pas d'endpoint séparé** : mettez plusieurs `id` de médias dans
+`versions[].content[].media`, et chaque réseau en fait ce qu'il sait faire.
+Sur Instagram, deux médias ou plus deviennent automatiquement un **carrousel
+natif**. Sur LinkedIn, un **post à images multiples**.
+
+| Réseau | Photos max | Vidéos max | Photos + vidéo ensemble |
+|---|---|---|---|
+| `instagram_direct` | 10 | 1 | oui |
+| `facebook_page` | 10 | 1 | non |
+| `linkedin`, `linkedin_page` | 9 | 1 | non |
+| `tiktok` | 35 | 1 | non |
+| `twitter` | 4 | 1 | non |
+| `mastodon` | 4 | 1 | non |
+| `pinterest` | 1 | 0 | — |
+| `youtube` | 0 | 1 | — |
+
+> ⚠️ **Le « carrousel LinkedIn » au sens des créateurs — le document PDF qui
+> défile — n'est pas encore supporté.** Plusieurs images sur LinkedIn donnent
+> un post multi-images, que l'on fait défiler aussi, mais ce n'est pas le même
+> format. Dites-le-nous si vous en avez besoin.
+
+`POST /posts/validate` refuse d'avance tout dépassement, avec le détail par
+réseau : appelez-le avant de programmer plutôt que de découvrir le refus à la
+publication.
+
 ### `POST /{workspace}/posts/validate`
 Même corps, ne persiste rien. Rend les refus qu'opposeraient les réseaux
 (longueur, nombre de médias, format). **Appelez-le avant de programmer** :
