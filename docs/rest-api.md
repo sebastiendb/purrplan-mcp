@@ -120,6 +120,20 @@ Le corps mérite d'être compris une fois pour toutes :
 Sans `schedule`, `schedule_now` ni `queue`, le post est créé en **brouillon**.
 Un `account_id` de `versions` doit figurer dans `accounts`, sinon `422`.
 
+> ⚠️ **`schedule_now` l'emporte sur `date` et `time`.** Si vous envoyez les
+> trois, la publication part **immédiatement** et vos `date`/`time` sont
+> ignorés — sans avertissement. C'est l'erreur la plus fréquente en début
+> d'intégration : on croit programmer, on publie.
+>
+> Pour programmer : `schedule: true` + `date` + `time` + `timezone`, **sans**
+> `schedule_now`. Une `date`/`time` déjà passée part aussi tout de suite.
+
+> **Une publication partie ne se modifie plus.** `PUT` répond alors `422` avec
+> `errors.in_history`, et `422` avec `errors.publishing` pendant l'envoi vers
+> les réseaux. Si votre intégration enchaîne « créer puis compléter », créez
+> d'abord en **brouillon** (sans `schedule*`), complétez, et programmez
+> seulement ensuite avec `POST /posts/schedule/{uuid}`.
+
 **Ce que `POST /posts` rend** — l'objet créé, **sans enveloppe** (pas de clé
 `data`). C'est là que vous lisez l'`uuid` à conserver :
 
