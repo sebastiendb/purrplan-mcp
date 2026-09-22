@@ -78,8 +78,21 @@ backend (souvent plafonné à quelques mégaoctets en serverless).
 
 ```http
 POST /{workspace}/media/presign
-{ "filename": "demo.mp4", "mime_type": "video/mp4", "size": 62000000 }
+{ "filename": "demo.mp4", "mime_type": "video/mp4", "size": 62000000,
+  "type": "library" }
 ```
+
+`type` vaut `library` (défaut) ou `uploads` :
+
+| | `library` | `uploads` |
+|---|---|---|
+| Médiathèque de l'espace | visible | non |
+| Réutilisation | **prévue pour** | possible, mais introuvable dans l'écran Médias |
+
+> **Un média sert à autant de publications que vous voulez.** Déposez-le une
+> fois, référencez son `id` dans chaque post. Supprimer une publication
+> n'emporte pas le média, et ne casse pas les autres publications qui s'en
+> servent.
 ```json
 { "upload_url": "https://cdn…/purrplan/…?X-Amz-Signature=…",
   "method": "PUT", "headers": {}, "expires_in": 900,
@@ -97,8 +110,9 @@ POST /{workspace}/media/confirm
 { "confirm_token": "eyJpdiI6…" }
 ```
 
-Rend la fiche média habituelle (`id`, `uuid`, `url`) : l'`id` est celui à
-référencer dans `versions[].content[].media`.
+Rend la fiche média habituelle (`id`, `uuid`, `type`, `url`) : l'`id` est
+celui à référencer dans `versions[].content[].media`, autant de fois que
+nécessaire.
 
 > L'adresse de dépôt expire en **15 minutes** et ne vaut que pour un fichier.
 > Le `confirm_token` porte l'espace de travail : il ne peut pas servir
