@@ -69,6 +69,47 @@ quand même côté PurrPlan : un compte qu'on a demandé à retirer doit dispara
 ### `POST /{workspace}/media` — `multipart/form-data`, champ `file`
 Rend la fiche média, dont l'`id` entier à référencer dans un post.
 
+### Dépôt direct — `POST /{workspace}/media/presign` puis `/media/confirm`
+
+Pour les gros fichiers, et pour ne pas faire transiter les médias par votre
+backend (souvent plafonné à quelques mégaoctets en serverless).
+
+**1. Votre serveur demande une adresse de dépôt** — avec votre jeton :
+
+```http
+POST /{workspace}/media/presign
+{ "filename": "demo.mp4", "mime_type": "video/mp4", "size": 62000000 }
+```
+```json
+{ "upload_url": "https://cdn…/purrplan/…?X-Amz-Signature=…",
+  "method": "PUT", "headers": {}, "expires_in": 900,
+  "confirm_token": "eyJpdiI6…" }
+```
+
+**2. Le navigateur envoie le fichier directement** à `upload_url`, en `PUT`,
+avec le corps du fichier. Il ne passe ni par votre backend ni par le nôtre —
+aucune limite de taille de requête, et votre jeton reste côté serveur.
+
+**3. Votre serveur confirme** :
+
+```http
+POST /{workspace}/media/confirm
+{ "confirm_token": "eyJpdiI6…" }
+```
+
+Rend la fiche média habituelle (`id`, `uuid`, `url`) : l'`id` est celui à
+référencer dans `versions[].content[].media`.
+
+> L'adresse de dépôt expire en **15 minutes** et ne vaut que pour un fichier.
+> Le `confirm_token` porte l'espace de travail : il ne peut pas servir
+> ailleurs. Type et taille sont revérifiés à la confirmation, sur le fichier
+> réellement déposé — ce que vous annoncez au presign n'engage que vous.
+>
+> Un fichier déposé mais jamais confirmé n'apparaît pas en médiathèque.
+
+`POST /{workspace}/media` en `multipart` reste disponible et convient
+parfaitement aux fichiers légers.
+
 ### `GET /{workspace}/media` — paginé, 20 par page
 ### `GET /{workspace}/media/{uuid}`
 ### `DELETE /{workspace}/media` — corps `{ "items": [uuid, …] }`
