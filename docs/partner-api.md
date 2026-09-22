@@ -370,6 +370,11 @@ Chaque livraison porte `workspace_uuid` à la racine, à côté de `event` et
 `data` : c'est lui qui dit de quel client il s'agit, indépendamment de l'URL
 que vous avez déclarée.
 
+La charge utile de `post.published` est la fiche complète du post : elle
+porte donc `published[]`, avec l'adresse publique de la publication sur chaque
+réseau (`url`), et `failures[]` en cas de refus. C'est là qu'on récupère le
+lien à montrer à son utilisateur.
+
 Répondez `200`, `201` ou `202`. Tout autre code est un échec, visible dans l'historique de livraison du workspace.
 
 Si vous avez posé un secret sur le webhook, l'en-tête `X-Signature` est le HMAC-SHA256 hexadécimal du corps JSON, calculé avec ce secret. Sans secret, l'en-tête est absent : ne traitez pas ça comme une livraison signée.

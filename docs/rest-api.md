@@ -155,6 +155,22 @@ Un `account_id` de `versions` doit figurer dans `accounts`, sinon `422`.
 
 `status` vaut `draft`, `scheduled`, `publishing`, `published` ou `failed`.
 
+Une fois la publication partie, `published` dit **où elle est en ligne**,
+compte par compte :
+
+```json
+"published": [
+  { "account_id": 12, "account_uuid": "…", "provider": "linkedin",
+    "provider_post_id": "urn:li:share:7123456789",
+    "url": "https://www.linkedin.com/feed/update/urn:li:share:7123456789/" }
+]
+```
+
+> `url` vaut `null` quand le réseau ne permet pas de reconstruire l'adresse
+> avec certitude (TikTok, notamment, rend selon les cas un identifiant public
+> ou un identifiant de publication). `provider_post_id` est alors toujours là.
+> Nous préférons pas de lien à un lien qui tombe à côté.
+
 Quand un réseau refuse, `failures` dit **pourquoi**, compte par compte — vide
 tant que tout va bien :
 
