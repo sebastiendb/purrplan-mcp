@@ -185,6 +185,22 @@ utile quand votre client connecte trois réseaux à la suite.
 | `return_url` | oui | **https public uniquement** — une IP privée, `localhost` ou un port exotique est refusé en `422` (protection anti-SSRF) |
 | `extra.channel` | Telegram seulement | le canal dont `@purrplanbot` est administrateur |
 
+### Instagram : deux chemins, choisissez le bon
+
+| Provider | Passe par Facebook | Prérequis |
+|---|---|---|
+| **`instagram_direct`** | **non** | compte professionnel ou créateur |
+| `instagram` | oui | compte pro/créateur **et** rattaché à une Page Facebook |
+
+**Préférez `instagram_direct`.** L'autre chemin fait passer votre client par
+l'écran d'autorisation de Meta, qui refuse net — « Vous ne pouvez pas vous
+connecter avec ce compte » — si son Instagram n'est pas relié à une Page
+Facebook. Ce refus a lieu chez Meta, avant de nous revenir : nous ne pouvons
+ni l'anticiper ni l'expliquer à sa place.
+
+Même logique pour Facebook : `facebook_page` connecte une **Page**, jamais un
+profil personnel.
+
 Réseaux : `facebook_page` (alias `facebook`), `instagram`, `instagram_direct`,
 `threads`, `twitter` (alias `x`), `linkedin`, `linkedin_page`, `youtube`,
 `google_business`, `pinterest`, `tiktok`, `bluesky`, `reddit`, `telegram`.
