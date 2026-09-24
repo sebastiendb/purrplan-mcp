@@ -322,6 +322,44 @@ ne réécrit pas un post pendant que le réseau est en train de le prendre.
 ### `GET /{workspace}/analytics/top-posts?days=30&limit=10`
 Les publications qui ont le mieux marché sur la période. `limit` de 1 à 50.
 
+Chaque entrée décrit une publication **telle que relevée chez le réseau**, donc
+une par compte. Un contenu diffusé sur trois réseaux donne trois entrées, avec
+les métriques propres à chacun.
+
+```json
+{
+  "days": 30,
+  "data": [
+    {
+      "id": 5760856,
+      "provider": "instagram_direct",
+      "account": {"name": "…", "image": "https://…"},
+      "text": "…",
+      "url": "https://www.instagram.com/p/…",
+      "likes": 25, "comments": 4, "shares": 0, "views": 172,
+      "engagement": 29,
+      "is_repost": false,
+      "is_story": false,
+      "date": "2026-09-20 08:14:00",
+      "purrplan_post": {"id": 1102, "uuid": "0d0410cd-…"}
+    }
+  ]
+}
+```
+
+`purrplan_post` porte la publication PurrPlan à l'origine de cette entrée, ou
+`null` si le contenu a été publié directement sur le réseau. **Deux entrées
+partageant le même `uuid` sont le même contenu vu sur deux réseaux** : c'est ce
+qui permet de recomposer un cross-post et de le ventiler par plateforme.
+
+Trois comportements à connaître avant de s'en servir comme classement :
+
+- `views` vaut `0` là où le réseau ne fournit pas la donnée (LinkedIn, YouTube).
+  C'est une absence réelle, pas une valeur à zéro : affichez `—`, pas `0`.
+- Le palmarès **panache les réseaux** — le meilleur contenu de chacun d'abord,
+  puis le reste par engagement. Ce n'est pas un tri brut.
+- Les republications et les publications sans aucune métrique sont écartées.
+
 ---
 
 ## Tags
