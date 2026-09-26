@@ -411,6 +411,79 @@ L'exemple commenté est dans [examples/partner-flow.mjs](../examples/partner-flo
 
 ---
 
+## 7. Mesurer — statistiques et palmarès
+
+Deux endpoints, avec le jeton REST du client :
+
+```
+GET /app/api/{workspace}/analytics?days=30
+GET /app/api/{workspace}/analytics/top-posts?days=30&limit=10
+```
+
+Le détail des champs est dans [rest-api.md § Statistiques](./rest-api.md#statistiques).
+Ce qui suit ne concerne que ce qui se déduit mal quand on construit une
+interface au-dessus.
+
+### Le palmarès liste des publications, pas des posts PurrPlan
+
+`top-posts` renvoie ce qui a été **relevé chez les réseaux**, une entrée par
+compte. Un contenu diffusé sur trois réseaux y apparaît donc en **trois
+entrées**, chacune avec les métriques de son réseau — et non en une ligne
+agrégée.
+
+C'est voulu : les chiffres d'Instagram et ceux de LinkedIn ne s'additionnent
+pas de façon comparable. Mais il faut pouvoir recomposer le contenu d'origine.
+
+### `purrplan_post` — ce qui relie les entrées entre elles
+
+Chaque entrée porte :
+
+```json
+"purrplan_post": { "id": 1102, "uuid": "0d0410cd-…" }
+```
+
+ou `null` si la publication n'est pas passée par PurrPlan (publiée à la main
+sur le réseau, ou antérieure au compte).
+
+**Deux entrées partageant ce même `uuid` sont le même contenu vu sur deux
+réseaux.** Groupez dessus pour afficher un post et sa ventilation par
+plateforme, chaque ligne gardant ses vraies métriques. L'`uuid` est celui que
+renvoient déjà `GET /posts` et les webhooks : c'est la même clé partout.
+
+### Ce qui est fiable, et ce qui ne l'est pas
+
+| Champ | À savoir |
+|---|---|
+| `likes`, `comments`, `shares` | présents pour tous les réseaux qui les exposent |
+| `views` | **`0` veut dire « non fourni »** sur LinkedIn et YouTube — affichez `—`, pas `0` |
+| `engagement` | somme likes + commentaires + partages, jamais les vues |
+| `provider`, `account` | le réseau et le compte de cette entrée précise |
+| `url` | jamais inventée : absente quand le réseau ne donne pas de lien public |
+| `clicks` | clics sur les liens tracés du post ; **`null`** si le suivi de liens est inactif — `null` et `0` ne veulent pas dire la même chose |
+
+Trois comportements du classement lui-même :
+
+- il **panache les réseaux** — le meilleur contenu de chacun d'abord, puis le
+  reste par engagement. Ce n'est pas un tri brut, ne le présentez pas comme
+  un « top 10 » strict ;
+- les **republications** sont écartées ;
+- les publications **sans aucune métrique** sont écartées (une ligne à zéro
+  partout n'apprend rien et occupe une place).
+
+### Quand les chiffres ne sont pas encore là
+
+`GET /analytics` répond `warming_up: true` tant que la collecte n'a pas
+tourné. Les compteurs sont alors **absents**, pas à zéro : afficher des zéros
+ferait croire à un échec de publication. Prévoyez un état « collecte en
+cours » plutôt qu'un tableau vide.
+
+Certains comptes ne seront jamais relevés (réseau sans API de statistiques,
+compte connecté par un chemin qui ne les expose pas) : ils sont exclus du
+décompte de progression, pour que la barre n'attende pas indéfiniment ce qui
+ne viendra pas.
+
+---
+
 ## Exemple complet
 
 Un serveur Node minimal, l'interface qui va avec, et la vérification de

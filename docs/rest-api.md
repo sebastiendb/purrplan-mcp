@@ -338,6 +338,7 @@ les métriques propres à chacun.
       "url": "https://www.instagram.com/p/…",
       "likes": 25, "comments": 4, "shares": 0, "views": 172,
       "engagement": 29,
+      "clicks": 8,
       "is_repost": false,
       "is_story": false,
       "date": "2026-09-20 08:14:00",
@@ -359,6 +360,9 @@ Trois comportements à connaître avant de s'en servir comme classement :
 - Le palmarès **panache les réseaux** — le meilleur contenu de chacun d'abord,
   puis le reste par engagement. Ce n'est pas un tri brut.
 - Les republications et les publications sans aucune métrique sont écartées.
+- `clicks` compte les clics sur les liens tracés de la publication. Il vaut
+  `null`, et non `0`, quand le suivi de liens n'est pas actif sur l'espace :
+  masquez la colonne dans ce cas plutôt que d'afficher un zéro.
 
 ---
 
