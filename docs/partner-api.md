@@ -413,11 +413,12 @@ L'exemple commenté est dans [examples/partner-flow.mjs](../examples/partner-flo
 
 ## 7. Mesurer — statistiques et palmarès
 
-Deux endpoints, avec le jeton REST du client :
+Trois endpoints, avec le jeton REST du client :
 
 ```
 GET /app/api/{workspace}/analytics?days=30
 GET /app/api/{workspace}/analytics/top-posts?days=30&limit=10
+GET /app/api/{workspace}/analytics/posts/{uuid}?days=30
 ```
 
 Le détail des champs est dans [rest-api.md § Statistiques](./rest-api.md#statistiques).
@@ -455,7 +456,7 @@ renvoient déjà `GET /posts` et les webhooks : c'est la même clé partout.
 | Champ | À savoir |
 |---|---|
 | `likes`, `comments`, `shares` | présents pour tous les réseaux qui les exposent |
-| `views` | **`0` veut dire « non fourni »** sur LinkedIn et YouTube — affichez `—`, pas `0` |
+| `views` | **`0` veut dire « non fourni »** sur LinkedIn et Facebook — affichez `—`, pas `0`. Lisez `views_available`, ne déduisez pas la règle du nom du réseau |
 | `engagement` | somme likes + commentaires + partages, jamais les vues |
 | `provider`, `account` | le réseau et le compte de cette entrée précise |
 | `url` | jamais inventée : absente quand le réseau ne donne pas de lien public |
@@ -469,6 +470,36 @@ Trois comportements du classement lui-même :
 - les **republications** sont écartées ;
 - les publications **sans aucune métrique** sont écartées (une ligne à zéro
   partout n'apprend rien et occupe une place).
+
+### Les stats d'une publication précise
+
+Le palmarès sert à **découvrir** ce qui a marché. Quand on sait déjà de quelle
+publication on parle — la vidéo qu'un utilisateur vient d'ouvrir dans votre
+interface — c'est cet appel qu'il faut :
+
+```
+GET /app/api/{workspace}/analytics/posts/{uuid}?days=30
+```
+
+Pas de limite de 50, pas de classement, pas de filtre : une publication toute
+récente, sans aucune réaction, ou hors du top 50 répond quand même. Le corps
+est décrit dans
+[rest-api.md § analytics/posts](./rest-api.md#get-workspaceanalyticspostsuuiddays30).
+
+Il retourne une entrée par réseau (mêmes champs que le palmarès) plus un bloc
+`totals`, et trois drapeaux qui évitent d'afficher un chiffre faux :
+
+| Champ | Ce qu'il empêche |
+|---|---|
+| `measured: false` | écrire « 0 vue » sur une vidéo pas encore relevée (compteurs à `null`) |
+| `views_available: false` | présenter comme un résultat le `0` d'un réseau qui ne fournit pas les vues |
+| `totals.views_partial: true` | comparer un total de vues incomplet à un total complet |
+
+`published: false` avec un `error` isole l'échec **d'un seul réseau** : un
+contenu parti sur trois comptes peut avoir échoué sur le troisième, ce qu'un
+statut global de publication ne dit pas.
+
+Un `uuid` inconnu répond `404`, jamais un objet à zéro.
 
 ### Quand les chiffres ne sont pas encore là
 

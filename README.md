@@ -82,6 +82,7 @@ Clients without native HTTP support can bridge through `mcp-remote`:
 | `reply_to_inbox_message` | `inbox:reply` | Send a real reply as the connected account (`confirm: true` required, hourly cap) |
 | `get_analytics` | `analytics:read` | Followers, reach, impressions, engagement, clicks, per-network breakdown |
 | `get_top_posts` | `analytics:read` | Best posts + audience/engagement curves |
+| `get_post_stats` | `analytics:read` | Stats of one post by uuid, per network (no top-50 limit) |
 | `plan_my_week` | `write`+`ai` | Turn a brief into N scheduled posts across the week |
 
 ## Scopes

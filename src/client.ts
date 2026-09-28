@@ -153,6 +153,7 @@ export function createPurrPlanClient(options: ClientOptions) {
     replyToInboxMessage: (args: Record<string, unknown>) => callTool("reply_to_inbox_message", args),
     getAnalytics: (args: Record<string, unknown>) => callTool("get_analytics", args),
     getTopPosts: (args: Record<string, unknown>) => callTool("get_top_posts", args),
+    getPostStats: (args: Record<string, unknown>) => callTool("get_post_stats", args),
     planMyWeek: (args: Record<string, unknown>) => callTool("plan_my_week", args),
   };
 }

@@ -355,14 +355,90 @@ qui permet de recomposer un cross-post et de le ventiler par plateforme.
 
 Trois comportements à connaître avant de s'en servir comme classement :
 
-- `views` vaut `0` là où le réseau ne fournit pas la donnée (LinkedIn, YouTube).
-  C'est une absence réelle, pas une valeur à zéro : affichez `—`, pas `0`.
+- `views` vaut `0` là où le réseau ne fournit pas la donnée (LinkedIn,
+  Facebook). C'est une absence réelle, pas une valeur à zéro : affichez `—`,
+  pas `0`. **N'en déduisez pas la règle depuis le nom du réseau** — le champ
+  `views_available` le dit pour chaque entrée, et reste juste quand un nouveau
+  réseau arrive.
 - Le palmarès **panache les réseaux** — le meilleur contenu de chacun d'abord,
   puis le reste par engagement. Ce n'est pas un tri brut.
 - Les republications et les publications sans aucune métrique sont écartées.
 - `clicks` compte les clics sur les liens tracés de la publication. Il vaut
   `null`, et non `0`, quand le suivi de liens n'est pas actif sur l'espace :
   masquez la colonne dans ce cas plutôt que d'afficher un zéro.
+
+### `GET /{workspace}/analytics/posts/{uuid}?days=30`
+
+Les résultats d'**une** publication, désignée par son `uuid`, réseau par
+réseau. À utiliser dès qu'on sait de quelle publication on parle : le palmarès
+ne sert qu'à découvrir ce qui a marché.
+
+Ce que cet appel fait et que `top-posts` ne fait pas : aucune limite de 50,
+aucun classement, aucun filtre. Une vidéo publiée il y a une heure, une
+publication sans aucune réaction, une republication — toutes répondent ici.
+`days` ne concerne que les clics tracés : les compteurs des réseaux sont
+cumulés depuis la parution, ils n'ont pas de période.
+
+```json
+{
+  "uuid": "0d0410cd-…",
+  "id": 1102,
+  "status": "PUBLISHED",
+  "scheduled_at": "2026-09-27T08:00:00+00:00",
+  "published_at": "2026-09-27T08:01:12+00:00",
+  "excerpt": "Les trois réglages que…",
+  "accounts": [
+    {
+      "account_id": 1443,
+      "provider": "tiktok",
+      "account": {"name": "…", "image": "https://…"},
+      "provider_post_id": "74123…",
+      "published": true,
+      "error": null,
+      "url": "https://www.tiktok.com/@…/video/74123…",
+      "measured": true,
+      "likes": 11, "comments": 3, "shares": 2,
+      "views": 515, "views_available": true,
+      "reach": null, "impressions": null,
+      "engagement": 16,
+      "clicks": 4,
+      "metrics_source": "imported_post",
+      "measured_at": "2026-09-28"
+    },
+    {
+      "account_id": 1439,
+      "provider": "linkedin",
+      "published": true,
+      "measured": true,
+      "likes": 4, "comments": 1, "shares": 0,
+      "views": 0, "views_available": false,
+      "engagement": 5,
+      "clicks": null
+    }
+  ],
+  "totals": {
+    "likes": 15, "comments": 4, "shares": 2, "engagement": 21,
+    "views": 515, "views_partial": true,
+    "clicks": 4
+  }
+}
+```
+
+Trois champs évitent d'écrire un chiffre faux :
+
+- **`measured: false`** — la publication est parue mais n'a pas encore été
+  relevée (le premier relevé suit la parution de quelques heures). Les
+  compteurs valent alors `null`, pas `0` : affichez « mesure en cours ».
+- **`views_available: false`** — le réseau ne fournit pas les vues. Le `0` de
+  `views` n'est pas un résultat.
+- **`views_partial: true`** dans `totals` — le total des vues n'additionne que
+  les réseaux qui les fournissent ; au moins un réseau manque à l'appel.
+
+`published: false` avec un `error` renseigné isole l'échec **d'un seul réseau** :
+un contenu parti sur trois comptes peut avoir échoué sur le troisième, ce qu'un
+statut global ne dit pas.
+
+Un `uuid` inconnu dans l'espace répond `404`, jamais un objet à zéro.
 
 ---
 

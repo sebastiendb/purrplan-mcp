@@ -140,6 +140,7 @@ describe("shipped PurrPlan MCP client", () => {
     { name: "reply_to_inbox_message", args: { workspace_uuid: "ws-1", message_id: 4, text: "ok", confirm: true }, call: (client) => client.replyToInboxMessage({ workspace_uuid: "ws-1", message_id: 4, text: "ok", confirm: true }) },
     { name: "get_analytics", args: { workspace_uuid: "ws-1", days: 7 }, call: (client) => client.getAnalytics({ workspace_uuid: "ws-1", days: 7 }) },
     { name: "get_top_posts", args: { workspace_uuid: "ws-1", limit: 3 }, call: (client) => client.getTopPosts({ workspace_uuid: "ws-1", limit: 3 }) },
+    { name: "get_post_stats", args: { workspace_uuid: "ws-1", post_uuid: "p-1" }, call: (client) => client.getPostStats({ workspace_uuid: "ws-1", post_uuid: "p-1" }) },
     { name: "plan_my_week", args: { workspace_uuid: "ws-1", brief: "semaine", schedule: false }, call: (client) => client.planMyWeek({ workspace_uuid: "ws-1", brief: "semaine", schedule: false }) },
   ];
 
@@ -196,6 +197,7 @@ describe("shipped PurrPlan MCP client", () => {
       client.replyToInboxMessage({ ...args, message_id: 1, text: "ok", confirm: true }),
       client.getAnalytics(args),
       client.getTopPosts(args),
+      client.getPostStats({ ...args, post_uuid: "0d0410cd-0000-4000-8000-000000000000" }),
       client.planMyWeek({ ...args, brief: "semaine", schedule: false }),
     ]);
 
@@ -204,7 +206,7 @@ describe("shipped PurrPlan MCP client", () => {
     expect(String(fetchImpl.mock.calls[0][0])).toBe(ENDPOINT);
   });
 
-  it("advertises only the 18 SaaS registry tools and wraps each one", () => {
+  it("advertises only the 19 SaaS registry tools and wraps each one", () => {
     expect(TOOLS.map((tool) => tool.name)).toEqual([
       "list_workspaces",
       "list_accounts",
@@ -223,6 +225,7 @@ describe("shipped PurrPlan MCP client", () => {
       "reply_to_inbox_message",
       "get_analytics",
       "get_top_posts",
+      "get_post_stats",
       "plan_my_week",
     ]);
     expect(TOOLS.map((tool) => tool.name).join(" ")).not.toMatch(/list_tags|schedule_post|get_calendar|update_post/);

@@ -20,6 +20,7 @@ export const TOOLS = [
   { name: "reply_to_inbox_message", scopes: ["inbox:reply"] },
   { name: "get_analytics", scopes: ["analytics:read"] },
   { name: "get_top_posts", scopes: ["analytics:read"] },
+  { name: "get_post_stats", scopes: ["analytics:read"] },
   { name: "plan_my_week", scopes: ["write", "ai"] },
 ] as const;
 
