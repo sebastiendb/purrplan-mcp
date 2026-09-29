@@ -210,6 +210,23 @@ Un `account_id` de `versions` doit figurer dans `accounts`, sinon `422`.
 
 `status` vaut `draft`, `scheduled`, `publishing`, `published` ou `failed`.
 
+> ⚠️ **`status` est le sort du LOT, pas celui d'un réseau.** Il passe à
+> `failed` dès qu'**un seul** compte du lot échoue — même si les autres sont
+> parfaitement en ligne. Une vidéo partie sur Instagram et refusée par TikTok
+> porte donc `status: "failed"` alors que la moitié du travail est faite.
+>
+> Le champ **`outcome`** dit la vérité à côté :
+>
+> | `outcome` | Ce qui s'est passé |
+> |---|---|
+> | `published` | tous les comptes sont en ligne |
+> | `partially_published` | au moins un est en ligne, au moins un a échoué |
+> | `failed` | aucun n'est passé |
+>
+> Il se calcule sur le seul fait qui ne ment pas : la publication a-t-elle un
+> identifiant chez le réseau ? N'affichez jamais « échec » à un utilisateur sur
+> la foi de `status` seul — croisez avec `published[]` et `failures[]`.
+
 Une fois la publication partie, `published` dit **où elle est en ligne**,
 compte par compte :
 
@@ -222,9 +239,15 @@ compte par compte :
 ```
 
 > `url` vaut `null` quand le réseau ne permet pas de reconstruire l'adresse
-> avec certitude (TikTok, notamment, rend selon les cas un identifiant public
-> ou un identifiant de publication). `provider_post_id` est alors toujours là.
-> Nous préférons pas de lien à un lien qui tombe à côté.
+> avec certitude — un `publish_id` TikTok au lieu de l'identifiant public de la
+> vidéo, un identifiant LinkedIn qui n'est pas un URN, un identifiant Facebook
+> sans la forme `{page}_{post}`. `provider_post_id` est alors toujours là. Nous
+> préférons pas de lien à un lien qui tombe à côté.
+>
+> Cas particulier d'Instagram : l'adresse n'existe qu'une fois le **code court**
+> récupéré, par un traitement différé de quelques minutes après la parution.
+> `url` est donc `null` juste après la publication, puis se remplit tout seul —
+> relisez le post si vous en avez besoin.
 
 Quand un réseau refuse, `failures` dit **pourquoi**, compte par compte — vide
 tant que tout va bien :
@@ -285,6 +308,18 @@ besoin.
 Deux refus possibles en `422`, propres à la mise à jour : `in_history` (le post
 est déjà publié ou archivé) et `publishing` (sa publication est en cours). On
 ne réécrit pas un post pendant que le réseau est en train de le prendre.
+
+> **`PUT` ne publie jamais, et ne peut pas produire de doublon.** Il écrit en
+> base et rien d'autre : c'est le planificateur qui publie, à l'heure dite, et
+> une seule fois. Changer `scheduled_at` déplace le rendez-vous — sur un post
+> déjà parti, la requête est refusée en `422 in_history` avant d'avoir touché
+> quoi que ce soit. Republier volontairement demande un **nouveau** post.
+
+Les erreurs rendues par un réseau sont conservées telles quelles dans
+`failures[].errors`. Pour TikTok, elles portent en plus `http_status`,
+`body_excerpt` et `log_id` : le premier dit s'il faut réessayer (5xx) ou
+corriger le contenu (4xx), le dernier est l'identifiant que le support TikTok
+réclame pour instruire un incident.
 ### `DELETE /{workspace}/posts/{uuid}` → `{ "deleted": true }`, ou `?trash=1` → `{ "to_trash": true }`
 ### `DELETE /{workspace}/posts` — suppression en lot, corps `{ "items": [uuid, …] }`
 ### `POST /{workspace}/posts/schedule/{uuid}` — corps `{ "postNow": true|false }`

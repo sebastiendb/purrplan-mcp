@@ -391,6 +391,26 @@ porte donc `published[]`, avec l'adresse publique de la publication sur chaque
 réseau (`url`), et `failures[]` en cas de refus. C'est là qu'on récupère le
 lien à montrer à son utilisateur.
 
+### ⚠️ Ces deux événements sont émis PAR COMPTE, pas par publication
+
+Un contenu envoyé sur Instagram et TikTok produit **deux** livraisons pour le
+même `uuid`, parfois à deux secondes d'intervalle — et si l'un des deux réseaux
+refuse, vous recevrez un `post.published` **et** un `post.publishing_failed`
+pour le même post. Ce n'est pas une anomalie.
+
+Deux champs permettent de s'y retrouver :
+
+- **`data.event_account`** — le réseau concerné par CETTE livraison :
+  `{ account_id, account_uuid, provider, name }`. `null` sur les rejeux et les
+  parcours anciens.
+- **`data.outcome`** — l'état global au moment de l'envoi : `published`,
+  `partially_published` ou `failed`.
+
+Ne vous fiez pas à `data.status` pour décider quoi montrer : il vaut `failed`
+dès qu'un seul compte du lot a échoué, y compris dans la charge utile d'un
+`post.published`. C'est le sort du lot, pas celui du réseau qui vient de
+réussir.
+
 Répondez `200`, `201` ou `202`. Tout autre code est un échec, visible dans l'historique de livraison du workspace.
 
 Si vous avez posé un secret sur le webhook, l'en-tête `X-Signature` est le HMAC-SHA256 hexadécimal du corps JSON, calculé avec ce secret. Sans secret, l'en-tête est absent : ne traitez pas ça comme une livraison signée.
