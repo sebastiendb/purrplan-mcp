@@ -183,6 +183,38 @@ Un `account_id` de `versions` doit figurer dans `accounts`, sinon `422`.
 > Pour programmer : `schedule: true` + `date` + `time` + `timezone`, **sans**
 > `schedule_now`. Une `date`/`time` déjà passée part aussi tout de suite.
 
+### Miniature d'une vidéo (couverture)
+
+**Aucune plateforme ne permet de changer la miniature d'une vidéo déjà
+publiée** — ni la Content Posting API de TikTok, ni la Graph API d'Instagram
+n'exposent d'endpoint pour ça. Le seul moment où le choix existe est la
+publication. Ne promettez pas à vos utilisateurs de le changer après coup.
+
+Le choix se fait dans `versions[].options`, sous le nom du réseau :
+
+```json
+"options": {
+  "tiktok": { "cover_timestamp_ms": 2500 },
+  "instagram_direct": { "cover_timestamp_ms": 2500 },
+  "instagram": { "cover_media_id": 8412 }
+}
+```
+
+| Réseau | Position dans la vidéo | Image fournie |
+|---|---|---|
+| `tiktok` | `cover_timestamp_ms` (ms) | **non** — l'API n'accepte qu'une image extraite de la vidéo |
+| `instagram`, `instagram_direct` | `cover_timestamp_ms` (ms) → `thumb_offset` | `cover_media_id` → `cover_url` |
+
+- `cover_media_id` est l'**id d'un média de la médiathèque** rendu par
+  `POST /media`, et il doit désigner une **image**. Un id de vidéo est ignoré :
+  l'envoyer ferait échouer la publication entière pour un réglage accessoire.
+- Quand les deux sont fournis à Instagram, **l'image l'emporte**.
+- `cover_timestamp_ms: 0` est un choix (la première image), pas une absence.
+  Omettez la clé pour ne rien imposer.
+- Les options TikTok s'écrivent aussi par compte
+  (`{"cover_timestamp_ms": {"account-12": 2500}}`) : les deux formes sont
+  acceptées.
+
 > **Une publication partie ne se modifie plus.** `PUT` répond alors `422` avec
 > `errors.in_history`, et `422` avec `errors.publishing` pendant l'envoi vers
 > les réseaux. Si votre intégration enchaîne « créer puis compléter », créez
