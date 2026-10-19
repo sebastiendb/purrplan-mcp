@@ -314,6 +314,118 @@ GET    /app/api/{workspace}/posts?status=…      → suivre
 DELETE /app/api/{workspace}/posts/{uuid}        → supprimer
 ```
 
+### Publier une story
+
+Une story se demande dans les options de la version du réseau. Sans
+`type: "story"`, le post part dans le fil. Les réseaux pris en charge sont
+`instagram`, `instagram_direct` et `facebook_page`.
+
+```http
+POST /app/api/{workspace}/posts
+Authorization: Bearer <api_token>
+Content-Type: application/json
+```
+
+```json
+{
+  "accounts": [12],
+  "date": "2026-10-22",
+  "time": "09:00",
+  "timezone": "Europe/Paris",
+  "schedule": true,
+  "versions": [
+    {
+      "account_id": 0,
+      "is_original": true,
+      "content": [{ "body": "Texte ignoré pour une story", "media": [88] }],
+      "options": {
+        "instagram_direct": { "type": "story" }
+      }
+    }
+  ]
+}
+```
+
+`accounts` contient l'id entier du compte connecté et `media` l'id entier rendu
+par l'envoi du fichier. Remplacez `instagram_direct` par `instagram` ou
+`facebook_page` selon le compte. N'envoyez qu'un média. Instagram et
+Instagram Direct renvoient `story_single_media_limit` si vous en envoyez
+plusieurs. Facebook Page utilise le premier média fourni ; le code actuel ne
+renvoie pas cette erreur pour les médias supplémentaires. Le texte n'est pas
+utilisé pour le contenu de la story.
+
+Pour Instagram, visez une image verticale au ratio 9:16, en JPG ou PNG jusqu'à
+8 Mo, ou une vidéo MP4 de 15 secondes au plus. Ce sont des recommandations
+Meta ; l'API PurrPlan ne valide pas ces dimensions, formats et durées comme des
+règles propres aux stories. Le réseau peut refuser un fichier qui ne convient
+pas.
+
+### Commentaire → message privé
+
+Les campagnes de réponse automatique sont propres à un espace. La lecture
+accepte les membres ayant accès aux publications ; leur création, modification,
+activation et suppression exigent un rôle éditeur.
+
+```http
+GET    /app/api/{workspace}/auto-dm/campaigns
+POST   /app/api/{workspace}/auto-dm/campaigns
+GET    /app/api/{workspace}/auto-dm/campaigns/{campaign}
+PUT    /app/api/{workspace}/auto-dm/campaigns/{campaign}
+DELETE /app/api/{workspace}/auto-dm/campaigns/{campaign}
+POST   /app/api/{workspace}/auto-dm/campaigns/{campaign}/activate
+POST   /app/api/{workspace}/auto-dm/campaigns/{campaign}/deactivate
+GET    /app/api/{workspace}/auto-dm/campaigns/{campaign}/events
+POST   /app/api/{workspace}/comments/{comment_id}/private-reply
+```
+
+Exemple de création :
+
+```json
+{
+  "name": "Guide sur demande",
+  "account_ids": [12],
+  "post_scope": "selected",
+  "post_ids": ["17900000000000000"],
+  "keywords": ["guide", "infos"],
+  "match_mode": "word",
+  "dm_message": "Bonjour, voici le guide demandé.",
+  "dm_media_url": "https://exemple.fr/guide.jpg",
+  "public_reply_message": "Je vous ai envoyé le guide en message privé.",
+  "fallback_public_reply": false,
+  "once_per_user": true,
+  "daily_cap": 100,
+  "starts_at": "2026-10-22T00:00:00Z",
+  "ends_at": "2026-11-22T23:59:59Z"
+}
+```
+
+`name`, `keywords` (au moins un) et `dm_message` sont requis. `match_mode`
+vaut `word`, `contains` ou `exact`. `post_scope` vaut `all` ou `selected`.
+Pour `selected`, `post_ids` contient les identifiants du réseau
+(`provider_post_id`), pas les `uuid` PurrPlan. Vous les trouvez dans
+`published[].provider_post_id` sur la réponse du post ou dans sa fiche
+`GET /posts/{uuid}`. `account_ids` contient des ids de comptes de cet espace.
+Les autres champs de l'exemple sont facultatifs ; `daily_cap` doit être un
+entier positif s'il est renseigné.
+
+Un commentaire ne déclenche que la première campagne active correspondante,
+selon l'ordre de création. Si plusieurs campagnes correspondent, la plus
+ancienne gagne.
+
+Pour envoyer une réponse manuelle, appelez `POST
+/app/api/{workspace}/comments/{comment_id}/private-reply` avec :
+
+```json
+{ "text": "Bonjour, voici les détails.", "link": "https://exemple.fr/details" }
+```
+
+`text` est requis ; `link` est facultatif. Utilisez l'identifiant du commentaire
+reçu comme `comment_id` dans le webhook. Une réponse privée par commentaire est
+acceptée ; une nouvelle tentative répond `409`. La fenêtre de réponse est de
+sept jours. La route limite aussi les réponses manuelles à 20 par heure et par
+espace (`429`). Pour les campagnes, `daily_cap` définit le plafond quotidien
+configurable. Meta peut aussi appliquer ses propres plafonds de fréquence.
+
 ## 6. Être prévenu — webhooks
 
 Posez-les **par API**, sans passer par l'interface :
@@ -331,8 +443,10 @@ Authorization: Bearer <api_token>
 
 `GET …/webhooks/events` liste les événements disponibles — ne recopiez pas la
 liste en dur, elle bouge. `PUT` accepte une mise à jour partielle
-(`{"active": false}` suffit à couper un webhook). Le secret n'est jamais relu :
-il s'écrit et se remplace.
+(`{"active": false}` suffit à couper un webhook). Si vous envoyez `events`,
+cette liste remplace entièrement les abonnements précédents. Les noms inconnus
+sont ignorés sans erreur ; consultez `GET …/webhooks/events` pour choisir les
+noms disponibles. Le secret n'est jamais relu : il s'écrit et se remplace.
 
 ### Ce que PurrPlan vous envoie
 
@@ -381,6 +495,58 @@ Mise à la corbeille : `{ "uuids": ["post-uuid"], "to_trash": true }`. Les deux 
 | `account.added` | Un compte vient d'être attaché |
 | `account.updated` | Un compte a changé |
 | `account.deleted` | Un compte a été retiré |
+| `comment.created` | Un commentaire Instagram a été reçu |
+| `dm.sent` | Une réponse automatique a été envoyée |
+| `dm.failed` | Une réponse automatique a échoué |
+
+`comment.created` est émis pour les commentaires reçus par le webhook
+Instagram. Son `data` contient :
+
+```json
+{
+  "post_uuid": "7fd00000-0000-4000-8000-000000000001",
+  "account": {
+    "id": 42,
+    "uuid": "b2c00000-0000-4000-8000-000000000001",
+    "provider": "instagram",
+    "name": "Boutique"
+  },
+  "author": { "id": "9001", "username": "lea" },
+  "text": "GUIDE svp",
+  "comment_id": "17900000000000000"
+}
+```
+
+`post_uuid` vaut `null` si PurrPlan ne retrouve pas le post. `dm.sent` et
+`dm.failed` portent les champs suivants dans `data` :
+
+```json
+{
+  "event_id": 8,
+  "campaign_id": 1,
+  "comment_id": 27,
+  "account_id": 42,
+  "provider": "instagram",
+  "status": "sent"
+}
+```
+
+Pour `dm.failed`, `status` vaut `failed` et `reason` contient le motif :
+
+```json
+{
+  "event_id": 9,
+  "campaign_id": 1,
+  "comment_id": 28,
+  "account_id": 42,
+  "provider": "instagram",
+  "status": "failed",
+  "reason": "Échec du service distant"
+}
+```
+
+Ces objets `data` sont envoyés dans l'enveloppe habituelle du webhook avec
+`event` et `workspace_uuid`.
 
 Chaque livraison porte `workspace_uuid` à la racine, à côté de `event` et
 `data` : c'est lui qui dit de quel client il s'agit, indépendamment de l'URL
