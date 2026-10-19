@@ -134,6 +134,8 @@ parfaitement aux fichiers légers.
 
 ### `POST /{workspace}/posts`
 
+Pour les stories, voir [l'exemple complet côté partenaire](./partner-api.md#publier-une-story).
+
 Le corps mérite d'être compris une fois pour toutes :
 
 ```json
@@ -540,9 +542,11 @@ une URL **publique** en http(s) sur le port 80 ou 443 : une IP privée ou
 
 ### `GET /{workspace}/webhooks` · `GET|PUT|DELETE /{workspace}/webhooks/{uuid}`
 `PUT` accepte une mise à jour partielle : `{"active": false}` coupe un webhook
-sans toucher à ses abonnements.
+sans toucher à ses abonnements. Si `events` est fourni, le tableau remplace
+toute la liste d'abonnements ; les noms inconnus sont ignorés. Consultez
+`GET /{workspace}/webhooks/events` pour la liste active.
 
-Charges utiles, signature HMAC et vérification : [partner-api.md](./partner-api.md) § 5.
+Charges utiles, signature HMAC et vérification : [partner-api.md](./partner-api.md) § 6.
 
 ---
 
