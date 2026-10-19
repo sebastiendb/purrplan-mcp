@@ -388,6 +388,7 @@ Exemple de création :
   "post_ids": ["17900000000000000"],
   "keywords": ["guide", "infos"],
   "match_mode": "word",
+  "status": "active",
   "dm_message": "Bonjour, voici le guide demandé.",
   "dm_media_url": "https://exemple.fr/guide.jpg",
   "public_reply_message": "Je vous ai envoyé le guide en message privé.",
@@ -408,6 +409,15 @@ Pour `selected`, `post_ids` contient les identifiants du réseau
 Les autres champs de l'exemple sont facultatifs ; `daily_cap` doit être un
 entier positif s'il est renseigné.
 
+**Une campagne naît en pause.** Sans `"status": "active"` à la création, elle
+est enregistrée avec le statut `paused` et ne répond à aucun commentaire. Pour
+la lancer, passez `"status": "active"` à la création (comme dans l'exemple
+ci-dessus) ou appelez ensuite `POST …/campaigns/{campaign}/activate`.
+`POST …/campaigns/{campaign}/deactivate` la remet en pause ; les événements déjà
+enregistrés restent consultables avec `GET …/campaigns/{campaign}/events`.
+Vérifiez le champ `status` de la réponse avant de considérer la campagne en
+marche.
+
 Un commentaire ne déclenche que la première campagne active correspondante,
 selon l'ordre de création. Si plusieurs campagnes correspondent, la plus
 ancienne gagne.
@@ -419,8 +429,12 @@ Pour envoyer une réponse manuelle, appelez `POST
 { "text": "Bonjour, voici les détails.", "link": "https://exemple.fr/details" }
 ```
 
-`text` est requis ; `link` est facultatif. Utilisez l'identifiant du commentaire
-reçu comme `comment_id` dans le webhook. Une réponse privée par commentaire est
+`text` est requis ; `link` est facultatif. Utilisez comme `{comment_id}` le
+`comment_id` reçu dans le webhook `comment.created` (l'identifiant Instagram du
+commentaire). N'utilisez pas le `comment_id` de `dm.sent` / `dm.failed` : c'est
+un autre numéro (voir plus bas). La route accepte aussi l'identifiant interne
+PurrPlan d'un commentaire, mais seulement s'il compte moins de 10 chiffres ;
+un identifiant Instagram est toujours cherché d'abord. Une réponse privée par commentaire est
 acceptée ; une nouvelle tentative répond `409`. La fenêtre de réponse est de
 sept jours. La route limite aussi les réponses manuelles à 20 par heure et par
 espace (`429`). Pour les campagnes, `daily_cap` définit le plafond quotidien
@@ -518,7 +532,13 @@ Instagram. Son `data` contient :
 ```
 
 `post_uuid` vaut `null` si PurrPlan ne retrouve pas le post. `dm.sent` et
-`dm.failed` portent les champs suivants dans `data` :
+`dm.failed` portent les champs suivants dans `data`.
+
+⚠️ Dans `dm.sent` et `dm.failed`, `comment_id` n'est **pas** l'identifiant
+Instagram du commentaire : c'est l'identifiant **interne PurrPlan** du message
+reçu (un entier court). Il ne se compare donc pas au `comment_id` de
+`comment.created`. Pour relier les deux, passez par `campaign_id` et
+`GET …/campaigns/{campaign}/events`.
 
 ```json
 {
